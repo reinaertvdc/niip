@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 
-# Pip dependencies:
-#     adafruit-circuitpython-ads1x15
-
-# Based on:
-#     https://github.com/adafruit/Adafruit_CircuitPython_ADS1x15#single-ended
+# Based on https://github.com/adafruit/Adafruit_CircuitPython_ADS1x15#single-ended
 
 import board
 import busio
