@@ -1,46 +1,63 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
-from MOD_LCD3310 import MOD_LCD3310
-from ADS1x15 import ADS1x15
-import Adafruit_GPIO.MCP230xx as MCP
-import Adafruit_BBIO.GPIO as GPIO
-
+import board
+import busio
 import time
 import sys
-from thread import start_new_thread
+from _thread import start_new_thread
 
-LCD_X_RES = 84
-LCD_Y_RES = 48
+import Adafruit_SSD1306
+import adafruit_ads1x15.ads1015 as ADS
+from adafruit_ads1x15.analog_in import AnalogIn
+import Adafruit_GPIO.MCP230xx as MCP
+import Adafruit_GPIO.SPI as SPI
 
-posShipY = LCD_Y_RES / 2
+from PIL import Image, ImageDraw
+
+# # Raspberry Pi pin configuration:
+RST = 24
+# # Note the following are only used with SPI:
+DC = 23
+SPI_PORT = 0
+SPI_DEVICE = 0
+
+DISP_X_RES = 128
+DISP_Y_RES = 64
+
+posShipY = DISP_Y_RES / 2
 posShipX = 2
 mcpi2c = 0
-testads = ADS1x15()
+testads = ADS.ADS1015(busio.I2C(board.SCL, board.SDA))
+chan = AnalogIn(testads, ADS.P0)
 
 bullets = []
 alive = True
 
 
 def drawShip():
-    global lcd
+    global draw
+    global image
     x = posShipX
     y = posShipY
-    lcd.Draw_Triangle(x, y-3, x+3, y, x, y+3)
-    lcd.LCDUpdate()
+    draw.polygon([(x, y-3), (x+3, y), (x, y+3)], fill=1)
 
 
-def initLCD():
-    global lcd
-    lcd = MOD_LCD3310()
-    lcd.LCDInit()
-    lcd.LCDContrast(0xFF)
+def initDisp():
+    global disp
+    global image
+    global draw
+    disp = Adafruit_SSD1306.SSD1306_128_64(
+        rst=RST, dc=DC, spi=SPI.SpiDev(SPI_PORT, SPI_DEVICE, max_speed_hz=8000000))
+    disp.begin()
+    image = Image.new('1', (DISP_X_RES, DISP_Y_RES))
+    draw = ImageDraw.Draw(image)
 
 
 def updateBullets():
     for b in bullets:
         b["x"] = b["x"] + 3
 
-        if b["x"] > LCD_X_RES:
+        if b["x"] > DISP_X_RES:
             bullets.remove(b)
 
 
@@ -48,19 +65,16 @@ def drawBullets():
     global alive
 
     for b in bullets:
-        lcd.Draw_Point(b["x"], b["y"])
+        draw.point([(b['x'], b['y'])], fill=1)
 
         if b["x"] > 57 and b["y"] >= 21 and b["y"] <= 27:
             alive = False
-    lcd.LCDUpdate()
 
 
 def drawTarget():
     global alive
-    print "hallo"
     if alive:
-        lcd.Draw_Circle(60, 24, 3)
-    lcd.LCDUpdate()
+        draw.arc([(58, 22), (62, 26)], 0, 360, fill=1)
 
 
 def input_thread(mcp):
@@ -68,15 +82,13 @@ def input_thread(mcp):
 
     while 1:
         time.sleep(0.025)
-
+        
         if mcp.input(1):
             shoot()
-        else:
-            pass  # mcp.output(0, MCP.GPIO.LOW)
 
-        val = testads.readADCSingleEnded(0)
+        val = chan.value
 
-        posY = (int)((val - 1700) / (3290 - 1700) * 48)
+        posY = (int)((val) / 1638 * 48)
         if posY > 45:
             posY = 45
         elif posY < 3:
@@ -85,18 +97,23 @@ def input_thread(mcp):
 
         if not alive:
             mcp.output(0, MCP.GPIO.HIGH)
+        else:
+            mcp.output(0, MCP.GPIO.LOW)
 
         updateBullets()
 
-        lcd.LCDClear()
+        draw.rectangle((0, 0, DISP_X_RES, DISP_Y_RES), outline=0, fill=0)
+        disp.image(image)
         drawShip()
         drawBullets()
         drawTarget()
+        disp.image(image)
+        disp.display()
 
 
 def shoot():
-        # print "pang"
-    bullets.append({"x": posShipX+3, "y": posShipY})
+    print('%s %s' % (posShipX+3, posShipY))
+    bullets.append({'x': posShipX+3, 'y': posShipY})
 
 
 def createTargets():
@@ -108,9 +125,9 @@ if __name__ == '__main__':
     # use pin 0 as OUTPUT, 1 as INPUT pin
     mcpi2c.setup(0, MCP.GPIO.OUT)
     mcpi2c.setup(1, MCP.GPIO.IN)
-    print "start"
+    print('start')
 
-    initLCD()
+    initDisp()
     drawShip()
 
     start_new_thread(input_thread, (mcpi2c,))
@@ -120,5 +137,5 @@ if __name__ == '__main__':
             # Quick example: DONT DO THIS:
             time.sleep(5)
         except KeyboardInterrupt:
-            print "ctrl-c detected, quiting"
+            print('ctrl-c detected, quiting')
             sys.exit()
