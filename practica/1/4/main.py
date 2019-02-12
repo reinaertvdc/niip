@@ -1,8 +1,10 @@
-import Adafruit_GPIO.MCP230xx as MCP
-import Adafruit_GPIO.GPIO as GPIO
+#!/usr/bin/env python2
 
-import time
 import sys
+import time
+
+import Adafruit_GPIO.GPIO as GPIO
+import Adafruit_GPIO.MCP230xx as MCP
 
 LED_PIN = 8
 BUTTON_PIN = 2

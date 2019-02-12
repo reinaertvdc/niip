@@ -1,6 +1,9 @@
-import RPi.GPIO as GPIO
-import time
+#!/usr/bin/env python2
+
 import os
+import time
+
+import RPi.GPIO as GPIO
 
 BUTTON_PIN = 2
 LED_PIN = 3
