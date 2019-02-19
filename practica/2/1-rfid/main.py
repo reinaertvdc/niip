@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# Based on https://github.com/cspencer/parallax-rfid-reader/blob/master/parallax.py
+
 import serial
 import time
 import RPi.GPIO as GPIO
