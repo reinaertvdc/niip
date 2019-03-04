@@ -1,0 +1,22 @@
+version: '3.5'
+
+services:
+  app:
+    build: 'services/app'
+    env_file:
+      - 'env/app.env'
+      - 'env/db.env'
+    ports:
+      - '8080:8080/tcp'
+    restart: 'always'
+    volumes:
+      - './services/app/public:/home/node/app/public:ro'
+      - './services/app/src:/home/node/app/src:ro'
+  db:
+    build: 'services/db'
+    restart: 'always'
+  dbmgr:
+    image: 'adminer'
+    ports:
+      - '8081:8080/tcp'
+    restart: 'always'
