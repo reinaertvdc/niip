@@ -18,7 +18,7 @@ class RandomSource:
 
 printer = RandomSource()
 
-server = LogServer("0.0.0.0", 8085)
+server = LogServer("0.0.0.0", 8080)
 server.registerDataSource("random-int", printer.getRandomNumber, 0, 100)
 server.registerDataSource("random-int", printer.getRandomNumber, 100, 200)
 server.registerDataSource("random-float", printer.getRandomFloat, 1.0, 2.0)
@@ -28,20 +28,20 @@ server.listen()
 """
 {
 	"get-data": {
-		"mode": "all", 
-		"sources": ["random-int"] 
+		"mode": "all",
+		"sources": ["random-int"]
 	}
-} 
+}
 """
 
 # Retrieve data from first "random-int" source
 """
 {
 	"get-data": {
-		"mode": "any", 
-		"sources": ["random-int"] 
+		"mode": "any",
+		"sources": ["random-int"]
 	}
-} 
+}
 """
 
 
@@ -49,8 +49,8 @@ server.listen()
 """
 {
 	"get-data": {
-		"mode": "all", 
-		"sources": ["random-int", "random-float"] 
+		"mode": "all",
+		"sources": ["random-int", "random-float"]
 	}
-} 
+}
 """
