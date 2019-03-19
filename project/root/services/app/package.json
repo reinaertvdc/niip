@@ -1,6 +1,8 @@
 {
   "private": true,
   "dependencies": {
-    "express": "^4.16.4"
+    "express": "^4.16.4",
+    "express-http-proxy": "^1.5.1",
+    "pg-promise": "^8.6.4"
   }
 }

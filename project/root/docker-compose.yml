@@ -3,9 +3,14 @@ version: '3.5'
 services:
   app:
     build: 'services/app'
+    depends_on:
+      - 'db'
+      - 'dbmgr'
     env_file:
       - 'env/app.env'
       - 'env/db.env'
+      - 'env/dbmgr.env'
+      - 'env/postgres.env'
     ports:
       - '8080:8080/tcp'
     restart: 'always'
@@ -14,9 +19,14 @@ services:
       - './services/app/src:/home/node/app/src:ro'
   db:
     build: 'services/db'
+    env_file:
+      - 'env/pgdata.env'
+      - 'env/postgres.env'
     restart: 'always'
+    volumes:
+      - './services/db/pgdata:/var/lib/postgresql/data/pgdata'
   dbmgr:
-    image: 'adminer'
-    ports:
-      - '8081:8080/tcp'
+    build: 'services/dbmgr'
+    depends_on:
+      - 'db'
     restart: 'always'

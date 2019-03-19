@@ -1,31 +1,33 @@
 const App = require('./App');
 
-function exit() {
-    console.log('Attempting graceful shutdown...');
+const s = process.env;
 
-    app.stop().then(() => {
-        console.log('Graceful shutdown successful.');
-
-        process.exit(0);
-    });
-}
-
-console.log('Attempting startup...');
-
-const env = process.env;
-
-const config = {
-    server: {
-        port: env.APP_PORT
-    },
+const config = Object.freeze({
     db: {
-        password: env.POSTGRES_PASSWORD
+        cn: {
+            host: s.DB_HOST,
+            port: s.DB_PORT,
+            database: s.POSTGRES_DB,
+            user: s.POSTGRES_USER,
+            password: s.POSTGRES_PASSWORD
+        }
+    },
+    server: {
+        port: s.APP_PORT,
+        api: {},
+        db: {
+            host: s.DBMGR_HOST,
+            port: s.DBMGR_PORT
+        },
+        oauth: {},
+        web: {}
     }
-};
+});
 
 const app = new App(config);
 
-app.start().then(() => { console.log('Startup successful.'); });
+app.start();
 
-process.on('SIGINT', exit);
-process.on('SIGTERM', exit);
+for (const interruptSignal of ['SIGINT', 'SIGTERM']) {
+    process.on(interruptSignal, () => { app.stop(); });
+}

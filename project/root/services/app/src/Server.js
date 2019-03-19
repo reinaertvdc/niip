@@ -3,6 +3,7 @@ const express = require('express');
 const Service = require('./Service');
 
 const ApiServer = require('./Server/ApiServer');
+const DbServer = require('./Server/DbServer');
 const OauthServer = require('./Server/OauthServer');
 const WebServer = require('./Server/WebServer');
 
@@ -15,9 +16,10 @@ module.exports = class extends Service {
         this._server = null;
 
         const servers = {
-            '/': new WebServer(),
-            '/api': new ApiServer(),
-            '/oauth': new OauthServer()
+            '/': new WebServer(config.web),
+            '/api': new ApiServer(config.api),
+            '/db': new DbServer(config.db),
+            '/oauth': new OauthServer(config.oauth)
         };
 
         for (const path in servers) {
