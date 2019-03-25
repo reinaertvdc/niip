@@ -1,0 +1,193 @@
+Python 3.6.7 (default, Oct 22 2018, 11:32:17) 
+[GCC 8.2.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import obd2pids
+>>> import serial
+>>> serPort = serial.Serial("/dev/rfcomm0")
+>>> serPort.open()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/brent/.local/lib/python3.6/site-packages/serial/serialposix.py", line 261, in open
+    raise SerialException("Port is already open.")
+serial.serialutil.SerialException: Port is already open.
+>>> serial.write(b"0100")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+AttributeError: module 'serial' has no attribute 'write'
+>>> serPort.write(b"0100")
+4
+>>> serPort.read(100)
+
+^CTraceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/brent/.local/lib/python3.6/site-packages/serial/serialposix.py", line 483, in read
+    ready, _, _ = select.select([self.fd, self.pipe_abort_read_r], [], [], timeout.time_left())
+KeyboardInterrupt
+>>> serPort.write(b"/r/n")
+4
+>>> serPort.readline()
+^CTraceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/brent/.local/lib/python3.6/site-packages/serial/serialposix.py", line 483, in read
+    ready, _, _ = select.select([self.fd, self.pipe_abort_read_r], [], [], timeout.time_left())
+KeyboardInterrupt
+>>> serPort.read(100)
+^CTraceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/brent/.local/lib/python3.6/site-packages/serial/serialposix.py", line 483, in read
+    ready, _, _ = select.select([self.fd, self.pipe_abort_read_r], [], [], timeout.time_left())
+KeyboardInterrupt
+>>> serPort.write(b"0100\r\n")
+6
+>>> serPort.read()
+b'0'
+>>> serPort.read()
+b'1'
+>>> serPort.read()
+b'0'
+>>> serPort.read()
+b'0'
+>>> serPort.read()
+b'\r'
+>>> serPort.read()
+b'4'
+>>> serPort.read()
+b'1'
+>>> serPort.read()
+b' '
+>>> serPort.read()
+b'0'
+>>> serPort.read()
+b'0'
+>>> serPort.read()
+b' '
+>>> serPort.read()
+b'B'
+>>> serPort.read()
+b'E'
+>>> serPort.read()
+b' '
+>>> serPort.read()
+b'3'
+>>> serPort.read()
+b'E'
+>>> serPort.read()
+b' '
+>>> 
+>>> serPort.read()
+b'B'
+>>> 
+>>> serPort.read()
+b'8'
+>>> serPort.read()
+b' '
+>>> 
+>>> serPort.read()
+b'1'
+>>> serPort.read()
+b'3'
+>>> serPort.read()
+b' '
+>>> serPort.read()
+b'\r'
+>>> serPort.read()
+b'\r'
+>>> serPort.read()
+b'>'
+>>> serPort.read()
+^[[A
+^[[A
+
+
+KeyboardInterrupt
+>>> serPort.write(b"0100\r\n")
+6
+>>> serPort.in_waiting
+26
+>>> serPort.read(26)
+b'0100\r41 00 BE 3E B8 13 \r\r>'
+>>> obd2pids.parseSupportedPIDs([0xBE, 0x3E, 0xB8, 0x13], 0x01)
+[1, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 17, 19, 20, 21, 28, 31, 32]
+>>> serPort.write(b"0101")
+4
+>>> serPort.in_waiting
+4
+>>> serPort.read(4)
+b'0101'
+>>> serPort.in_waiting
+4
+>>> serPort.read(4)
+b'?\r\r>'
+>>> serPort.read(4)
+^CTraceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/brent/.local/lib/python3.6/site-packages/serial/serialposix.py", line 483, in read
+    ready, _, _ = select.select([self.fd, self.pipe_abort_read_r], [], [], timeout.time_left())
+KeyboardInterrupt
+>>> serPort.write(b"0101\r\n")
+6
+>>> serPort.in_waiting
+26
+>>> serPort.read(26)
+b'0101\r41 01 02 07 E1 C0 \r\r>'
+>>> serPort.write(b"0105\r\n")
+6
+>>> serPort.in_waiting
+17
+>>> answer = serPort.read(17)
+>>> print(answer)
+b'0105\r41 05 58 \r\r>'
+>>> obd2pids.parseResponse(0x05, [0x58])
+48.0
+>>> serPort.write(b"010F\r\n")
+6
+>>> answer = serPort.read(serPort.in_waiting)
+>>> print(answer)
+b'010F\r41 0F 4A \r\r>'
+>>> obd2pids.parseResponse(0x0F, [0x4A])
+34.0
+>>> obd2pids.parseResponse(0x0F, [0x4A])
+34.0
+>>> serPort.write("@1\r\n")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/brent/.local/lib/python3.6/site-packages/serial/serialposix.py", line 532, in write
+    d = to_bytes(data)
+  File "/home/brent/.local/lib/python3.6/site-packages/serial/serialutil.py", line 63, in to_bytes
+    raise TypeError('unicode strings are not supported, please encode to bytes: {!r}'.format(seq))
+TypeError: unicode strings are not supported, please encode to bytes: '@1\r\n'
+>>> serPort.write(b"@1\r\n")
+4
+>>> answer = serPort.read(serPort.in_waiting)
+>>> print(answer)
+b'@1\r?\r\r>'
+>>> serPort.write(b"@1\r\n")
+4
+>>> answer = serPort.read(serPort.in_waiting)
+>>> print(answer)
+b'@1\r?\r\r>'
+>>> serPort.write(b"DP\r\n")
+4
+>>> answer = serPort.read(serPort.in_waiting)
+>>> print(answer)
+b'DP\r?\r\r>'
+>>> serPort.write(b"ATDP\r\n")
+6
+>>> answer = serPort.read(serPort.in_waiting)
+>>> print(answer)
+b'ATDP\rAUTO, ISO 15765-4 (CAN 29/500)\r\r>'
+>>> serPort.write(b"AT@1\r\n")
+6
+>>> answer = serPort.read(serPort.in_waiting)
+>>> print(answer)
+b'AT@1\rOBDII to RS232 Interpreter\r\r>'
+>>> serPort.write(b"ATSP\r\n")
+6
+>>> answer = serPort.read(serPort.in_waiting)
+>>> print(answer)
+b'ATSP\r?\r\r>'
+>>> serPort.write(b"ATSP0\r\n")
+7
+>>> answer = serPort.read(serPort.in_waiting)
+>>> print(answer)
+b'ATSP0\rOK\r\r>'
