@@ -192,15 +192,31 @@ PIDParsingMap[0x0F] = (1, "Intake air temperature", lambda data: (float(data[0] 
 PIDParsingMap[0x10] = (2, "MAF air flow rate", lambda data: (2.56 * data[0]) + data[1], "grams/sec")
 PIDParsingMap[0x11] = (1, "Throttle position", lambda data: (data[0] / 2.55), "%")
 
+PIDParsingMap[0x1F] = (2, "Run time since engine start", lambda data: (data[0] * 256) + data[1], "seconds")
+
 ###############	
 # 0x20 - 0x39 #
 ###############
 PIDParsingMap[0x20] = (4, "PIDs supported [21-40]", lambda data: parseSupportedPIDs(data, 0x21), None)
 
+PIDParsingMap[0X33] = (1, "Absolute Barometric Pressure", lambda data: data[0], "kPa")
+
 ###############	
 # 0x40 - 0x59 #
 ###############
 PIDParsingMap[0x40] = (4, "PIDs supported [41-60]", lambda data: parseSupportedPIDs(data, 0x41), None)
+
+PIDParsingMap[0x42] = (2, "Control module voltage", lambda data: (256 * data[0] + data[1]) / 1000, "V")
+PIDParsingMap[0x43] = (2, "Absolute load value", lambda data: (1 / 2.55) * (256 * data[0] + data[1]), "%")
+PIDParsingMap[0x44] = (2, "Fuel–Air commanded equivalence ratio", lambda data: (2 / 65536) * (256 * data[0] + data[1]), "ratio")
+PIDParsingMap[0x45] = (1, "Relative throttle position", lambda data: data[0] / 2.55, "%")
+
+PIDParsingMap[0x47] = (1, "Absolute throttle position B", lambda data: data[0] / 2.55, "%")
+
+PIDParsingMap[0x49] = (1, "Accelerator pedal position D", lambda data: data[0] / 2.55, "%")
+PIDParsingMap[0x4A] = (1, "Accelerator pedal position E", lambda data: data[0] / 2.55, "%")
+
+PIDParsingMap[0x4C] = (1, "Commanded throttle actuator", lambda data: data[0] / 2.55, "%")
 
 ###############	
 # 0x60 - 0x79 #
