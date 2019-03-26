@@ -1,0 +1,6 @@
+{
+	"port": "/dev/rfcomm0",
+	"settings": {
+		"baudRate": 38400
+	}
+}

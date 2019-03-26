@@ -1,0 +1,21 @@
+{
+  "name": "node-master",
+  "version": "1.0.0",
+  "description": "The main program running on our nodes.",
+  "main": "index.ts",
+  "scripts": {
+    "start": "npx ts-node index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^11.11.7",
+    "@types/serialport": "^7.0.2",
+    "ts-node": "^8.0.3",
+    "typescript": "^3.3.4000"
+  },
+  "dependencies": {
+    "serialport": "^7.1.4"
+  }
+}

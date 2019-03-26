@@ -167,6 +167,7 @@ def parsePID03(data):
 ###############	
 # 0x00 - 0x19 #
 ###############
+PID03Map[0] = "Not supported"
 PID03Map[1] = "Open loop due to insufficient engine temperature"
 PID03Map[2] = "Closed loop, using oxygen sensor feedback to determine fuel mix"
 PID03Map[4] = "Open loop due to engine load OR fuel cut due to deceleration"
