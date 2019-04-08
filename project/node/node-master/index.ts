@@ -1,3 +1,9 @@
+import { BluetoothWatcher } from "./obd2/bluetooth-watcher";
+
+let watcher = new BluetoothWatcher("OP3T", "/dev/rfcomm0");
+
+
+/*
 import { OBD2DataReader } from "./obd2/obd2-data-reader";
 import { OBD2Interface } from "./obd2/obd2-interface";
 
@@ -21,5 +27,5 @@ setTimeout(() => {
 		});
 	});
 }, 100);
-
+*/
 setInterval(() => {}, 1 << 30);

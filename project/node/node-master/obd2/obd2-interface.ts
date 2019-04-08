@@ -1,21 +1,30 @@
 import * as SerialPort from "serialport";
 import * as Regex from "@serialport/parser-regex";
+import { EventEmitter } from "events";
 
-class OBD2Interface {
+class OBD2Interface extends EventEmitter {
 	private serial: SerialPort;
 	private parser: any;
+	
 	private writeBusy: boolean = false;
+	private brokenPipe: boolean = false;
+	private timeout: number = 100;
+	private timeoutIncrement: number = 50;
+	
+	private lastCommand: string = ""
 	private writeQueue: Array<string> = [];
 	private answerQueue: Array<{ input: string, resolve: Function, reject: Function}> = [];
 	private bufferedData: string = ""
 
 	constructor(port, options) {
+		super();
 		this.onData = this.onData.bind(this);
+		this.open(port, options);
+	}
 
+	public open(port, options) {
 		this.serial = new SerialPort(port, options);
-		this.serial.on("error", (error) => {
-			console.log("Error: " + error);
-		});
+		this.serial.on("error", (error) => { this.onError(error); });
 		//this.serial.on("data", (data: Buffer) => {
 			//console.log(data.toString());
 		//});
@@ -25,12 +34,17 @@ class OBD2Interface {
 		// 41 00 A0 B0 C0 D0\r\r	// Command repeated, output of command, all in hex with spaces between bytes, can be a '?' if command not supported
 		this.parser = this.serial.pipe(new Regex({ regex: /\r/ }));
 		this.parser.on("data", this.onData);
-		this.parser.on("error", (error) => {
-			console.log("Error: " + error);
-		});
+		this.parser.on("error", (error) => { this.onError(error); });
 	}
 
 	private onData(data: string): void {
+		if(data.toLocaleLowerCase().search("stopped") != -1) {
+			console.log("Sending data too fast, increasing timeout.");
+			this.timeout += this.timeoutIncrement;
+			this.bufferedData = "";
+			this.write(this.lastCommand);
+			return;
+		}
 
 		console.log("==============================");
 		console.log(this.bufferedData);
@@ -59,12 +73,22 @@ class OBD2Interface {
 			element.resolve(this.bufferedData);
 		}
 		this.bufferedData = "";
-		this.writeBusy = false;
-		this.nextWrite();
+		
+		if(!this.queueEmpty())
+			this.nextWrite();
+		else {
+			this.writeBusy = false;
+		}
+	}
+
+	private onError(error) {
+		console.log("[OBD2Interface]: " + error);
+		this.brokenPipe = true;
+		this.emit("error", error);
 	}
 
 	public sendCommand(data: string) {
-		if(!this.writeBusy) {
+		if(this.mayWrite()) {
 			this.write(data);
 		}
 		else {
@@ -77,6 +101,14 @@ class OBD2Interface {
 		});
 	}
 
+	private queueEmpty(): boolean {
+		return this.writeQueue.length == 0;
+	}
+
+	private mayWrite(): boolean {
+		return (this.serial.isOpen && !this.brokenPipe && !this.writeBusy);
+	}
+
 	private nextWrite() {
 		if(this.writeQueue.length > 0) {
 			let write: string = this.writeQueue.shift();
@@ -87,12 +119,13 @@ class OBD2Interface {
 	private write(input: string) {
 		this.writeBusy = true;
 		setTimeout(() => {
+			this.lastCommand = input;
 			this.serial.write(input + "\r\n", (error) => {
 				if(error) {
-					console.log("Write error: " + error.message);
+					this.onError(error);
 				}
 			});
-		}, 200);
+		}, this.timeout);
 	}
 }
 
