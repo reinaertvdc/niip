@@ -3,6 +3,8 @@ import * as Regex from "@serialport/parser-regex";
 import { EventEmitter } from "events";
 
 class OBD2Interface extends EventEmitter {
+	private serialDevice: string;
+	private serialOptions: any;
 	private serial: SerialPort;
 	private parser: any;
 	
@@ -16,10 +18,25 @@ class OBD2Interface extends EventEmitter {
 	private answerQueue: Array<{ input: string, resolve: Function, reject: Function}> = [];
 	private bufferedData: string = ""
 
-	constructor(port, options) {
+	constructor(serialDevice, serialOptions) {
 		super();
 		this.onData = this.onData.bind(this);
-		this.open(port, options);
+		this.serialDevice = serialDevice;
+		this.serialOptions = serialOptions;
+	}
+
+	public init() {
+		this.open(this.serialDevice, this.serialOptions);
+	}
+
+	public clear() {
+		this.writeBusy = false;
+		this.brokenPipe = false;
+		this.timeout = 100;
+		this.timeoutIncrement = 50;
+		
+		this.lastCommand = "";
+		this.bufferedData = "";
 	}
 
 	public open(port, options) {
@@ -35,6 +52,7 @@ class OBD2Interface extends EventEmitter {
 		this.parser = this.serial.pipe(new Regex({ regex: /\r/ }));
 		this.parser.on("data", this.onData);
 		this.parser.on("error", (error) => { this.onError(error); });
+		this.nextWrite();
 	}
 
 	private onData(data: string): void {

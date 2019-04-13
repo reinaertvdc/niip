@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^11.11.7",
+    "@types/node": "^11.13.4",
     "@types/serialport": "^7.0.2",
     "ts-node": "^8.0.3",
     "typescript": "^3.3.4000"
