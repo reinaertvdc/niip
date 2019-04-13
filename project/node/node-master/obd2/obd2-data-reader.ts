@@ -1,4 +1,4 @@
-import { OBD2PIDMap } from "./obd2-pidmap";
+import { OBD2PIDMap } from "./obd2-pidmaps";
 import { OBD2Interface } from "./obd2-interface"
 import { OBD2PID } from "./obd2-pid";
 
@@ -10,6 +10,10 @@ class OBD2DataReader {
 	constructor(obd2interface: OBD2Interface) {
 		this.obdMap = new OBD2PIDMap();
 		this.obdInterface = obd2interface;
+	}
+
+	public setInterface(obdInterface: OBD2Interface) {
+		this.obdInterface = obdInterface;
 	}
 
 	public init(): Promise<void> {

@@ -1,31 +1,18 @@
-import { BluetoothWatcher } from "./obd2/bluetooth-watcher";
+import { BluetoothOBD2 } from "./obd2/bluetooth-obd2";
 
-let watcher = new BluetoothWatcher("OP3T", "/dev/rfcomm0");
-
-
-/*
-import { OBD2DataReader } from "./obd2/obd2-data-reader";
-import { OBD2Interface } from "./obd2/obd2-interface";
-
-
-let obdint = new OBD2Interface("/dev/rfcomm0", {
-	baudRate: 38400
+let obd2 = new BluetoothOBD2("OBDII", "/dev/rfcomm0", {
+	"baudRate": 38400
 });
 
-let reader = new OBD2DataReader(obdint);
-
-setTimeout(() => {
-	console.log("Initing reader.");
-	reader.init().then(() => {
-		console.log("Reader inited.");
-		console.log("Supported PIDs")
-		console.log(reader.getSupportedPIDs());
-		reader.getAllPIDData(true).then((dataArray: Array<any>) => {
-			dataArray.forEach((value) => {
-				console.log(value);
-			});
+obd2.init().then(() => {
+	console.log("[Main] BluetoothOBD2 initialised.");
+	obd2.getAllCurrentData().then((dataArray: Array<any>) => {
+		console.log("[Main] Received all PID data.");
+		dataArray.forEach((value) => {
+			console.log(value);
 		});
 	});
-}, 100);
-*/
+});
+
+// This is to stop node from closing
 setInterval(() => {}, 1 << 30);

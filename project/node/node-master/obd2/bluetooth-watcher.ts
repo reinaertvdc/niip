@@ -96,6 +96,7 @@ class BluetoothWatcher extends EventEmitter {
                 this.timeout = 500;
                 resolve();
                 console.log("[BT] Opened connection on \"" + this.port + "\"");
+                this.emit("connected");
             }, this.openConnectionTimeout);
         });
     }
@@ -116,9 +117,9 @@ class BluetoothWatcher extends EventEmitter {
                 this.setMAC(value);
                 this.connect();
             });
-        }, this.timeout)
-        
-        
+        }, this.timeout);
+
+        this.emit("closed", event);
     }
 
     private onClose(event) {
@@ -127,6 +128,7 @@ class BluetoothWatcher extends EventEmitter {
 
     private onError(event) {
         console.log("[BT] Error: " + event);
+        this.emit("error", event);
     }
 }
 
