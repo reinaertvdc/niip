@@ -16,7 +16,7 @@ obd2.init().then(() => {
 });
 */
 
-import { DataProvider } from "./dataprovider/dataprovider"
+import { DataProvider } from "./dataprovider/dataprovider";
 
 function randInt(min, max) {
 	return new Promise((resolve, reject) => {
@@ -32,6 +32,7 @@ provider.register({
 	"thisObject": null,
 	"arguments": [10, 50]
 });
+
 
 // This is to stop node from closing
 setInterval(() => {}, 1 << 30);
