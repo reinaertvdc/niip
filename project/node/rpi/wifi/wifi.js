@@ -135,7 +135,7 @@ class Router {
     constructor(wifiCheckInterval = 15000, minQuality = 40) {
         this._connectInterval = wifiCheckInterval;
         this._minQuality = minQuality;
-        this._pool = new ByteBufferPool();
+        // this._pool = new ByteBufferPool();
         this._sendBufferAlwaysFirst = [];
         this._sendBufferAlways = [];
         this._sendBufferNocost = [];
@@ -148,9 +148,9 @@ class Router {
         setTimeout(this._connectLoop.bind(this), 0);
         // setTimeout(this._sendLoop.bind(this), 0);
     }
-    get pool() {
-        return this._pool;
-    }
+    // get pool() {
+    //     return this._pool;
+    // }
     send(data) {
         assert(data instanceof Data);
         if (data.urgency === Data.URGENCY_SEND_ALWAYS_FIRST) {
