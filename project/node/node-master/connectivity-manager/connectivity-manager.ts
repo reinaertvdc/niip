@@ -12,6 +12,7 @@ class ConnectivityManager {
     private dataSocket;
     private dataEventMap: Map<string, Function> = new Map();
     private dataSocketInterval = null;
+    private dataSocketPing = null;
 
     private dataList: Array<any>;
     private requestedData: Array<any>;
@@ -53,7 +54,7 @@ class ConnectivityManager {
         this.dataSocket.connected = false;
 
         this.dataSocket.on("message", (data) => {
-            console.log("[ConnectivityManager] Message: " + data);
+            console.log("[ConnectivityManager] Data Message: " + data);
             this.onDataMessage(data);
         });
 
@@ -65,6 +66,8 @@ class ConnectivityManager {
         this.dataSocket.on("error", (error) => {
             this.onDataConnectionError(null, error);
         });
+
+        this.intervalUUID = null;
     }
 
     private initEndPointSocket() {
@@ -87,6 +90,7 @@ class ConnectivityManager {
     }
 
     private sendOnDataConnection(object) {
+        console.log("Send Data: " + JSON.stringify(object));
         this.dataSocket.send(JSON.stringify(object), (error) => {
             if(error) {
                 this.onDataConnectionError(object, error);
@@ -95,6 +99,8 @@ class ConnectivityManager {
     }
 
     private sendOnEndPointConnection(object) {
+        console.log("[ConnectivityManager] Endpoint send: " + JSON.stringify(object));
+
         this.endPointSocket.send(JSON.stringify(object), (error) => {
             if(error) {
                 this.onEndPointConnectionError(object, error);
@@ -111,9 +117,17 @@ class ConnectivityManager {
 
         this.sendOnDataConnection({
             "type": "list-data",
-            "arguments": {
+            "data": {
             }
         });
+
+        this.dataSocketPing = setInterval(() => {
+            this.sendOnDataConnection({});
+        }, 10000);
+
+        if(this.requestedData) {
+            this.startStream();
+        }
     }
 
     private onEndPointConnection() {
@@ -154,6 +168,7 @@ class ConnectivityManager {
 
     private onStartDataStream(data) {
         if(data.hasOwnProperty("uuid")) {
+            console.log("UUID: " + data.uuid);
             this.intervalUUID = data.uuid;
         }
     }
@@ -177,6 +192,9 @@ class ConnectivityManager {
     }
 
     private onEndPointMessage(data) {
+        console.log("[ConnectivityManager] Endpoint Message: " + data);
+        data = JSON.parse(data);
+
         if(data.hasOwnProperty("type") && data.hasOwnProperty("data")) {
             if(this.endPointEventMap.has(data.type)) {
                 this.endPointEventMap.get(data.type)(data.data);
@@ -188,20 +206,28 @@ class ConnectivityManager {
         if(data.hasOwnProperty("sources") && data.hasOwnProperty("interval")) {
             this.requestedData = data.sources;
             this.requestedInterval = data.interval;
+            this.authenticated = true;
 
             this.requestData();
         }
     }
 
     private onDataConnectionError(message, error) {
-        console.log("[ConnectivityManager] Error on data socket, closing.");
-        this.dataSocket.connected = false;
-        this.dataSocket.terminate();
+        if(this.dataSocketInterval == null) {
+            console.log("[ConnectivityManager] Error on data socket, closing.");
+            this.dataSocket.connected = false;
+            this.dataSocket.terminate();
 
-        this.dataSocketInterval = setInterval(() => {
-            console.log("[ConnectivityManager] Trying to connect to data source.");
-            this.initDataSocket();
-        }, 10000);
+            if(this.dataSocketPing) {
+                clearInterval(this.dataSocketPing);
+                this.dataSocketPing = null;
+            }
+
+            this.dataSocketInterval = setInterval(() => {
+                console.log("[ConnectivityManager] Trying to connect to data source.");
+                this.initDataSocket();
+            }, 10000);
+        }
     }
 
     private onEndPointConnectionError(message, error) {
@@ -209,14 +235,16 @@ class ConnectivityManager {
             this.writeToBuffer(message.data);
         }
 
-        console.log("[ConnectivityManager] Error on endpoint socket, closing.");
-        this.endPointSocket.connected = false;
-        this.endPointSocket.terminate();
+        if(this.endPointSocketInterval == null) {
+            console.log("[ConnectivityManager] Error on endpoint socket, closing.");
+            this.endPointSocket.connected = false;
+            this.endPointSocket.terminate();
 
-        this.endPointSocketInterval = setInterval(() => {
-            console.log("[ConnectivityManager] Trying to connect to endpoint.");
-            this.initEndPointSocket();
-        }, 10000);
+            this.endPointSocketInterval = setInterval(() => {
+                console.log("[ConnectivityManager] Trying to connect to endpoint.");
+                this.initEndPointSocket();
+            }, 10000);
+        }
     }
 
     private isDataConnected() {
@@ -251,14 +279,15 @@ class ConnectivityManager {
     private requestData() {
         if(this.intervalUUID != null) {
             this.stopStream();
-            this.startStream();
         }
+        this.startStream();
     }
 
     private sendAnalytics(data) {
         this.transformValuesToArray(data);
 
         if(this.isEndPointConnected()) {
+            
             this.sendOnEndPointConnection({
                 "type": "analytics",
                 "data": data
@@ -274,7 +303,7 @@ class ConnectivityManager {
             this.buffer = data;
         }
         else {
-            var keys = data.keys();
+            var keys = Object.keys(data);
 
             keys.forEach((key) => {
                 if(this.buffer.hasOwnProperty(key)) {
@@ -294,7 +323,7 @@ class ConnectivityManager {
     }
 
     private transformValuesToArray(data) {
-        var keys = data.keys();
+        var keys = Object.keys(data);
 
         keys.forEach((key) => {
             data[key] = [data[key]];

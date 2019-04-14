@@ -67,11 +67,11 @@ class DataProvider {
     }
 
     private onMessage(connection, message) {
-        if(message.hasOwnProperty("type") && message.hasOwnProperty("arguments")) {
+        if(message.hasOwnProperty("type") && message.hasOwnProperty("data")) {
             var type = message.type;
             
             if(this.eventMap.has(type)) {
-                this.eventMap.get(type)(connection, message.arguments);
+                this.eventMap.get(type)(connection, message.data);
             }
         }
     }
@@ -222,6 +222,7 @@ class DataProvider {
             }
             
             let keySet: Set<string> = new Set(found);
+
             found.forEach((value, index) => {
                 this.getData(value).then((output) => {
                     response[value] = output;
