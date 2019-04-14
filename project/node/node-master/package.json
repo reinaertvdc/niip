@@ -16,6 +16,8 @@
     "typescript": "^3.3.4000"
   },
   "dependencies": {
-    "serialport": "^7.1.4"
+    "serialport": "^7.1.4",
+    "uuid": "^3.3.2",
+    "ws": "^6.2.1"
   }
 }
