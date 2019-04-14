@@ -141,9 +141,9 @@ class Router {
         this._sendBufferNocost = [];
         this._sendBufferNocostWhenever = [];
         this._aps = [];
-        try {
-            this._ws = new WebSocket('ws://127.0.0.1:8080');
-        } catch(ignored) {}
+        // try {
+        //     this._ws = new WebSocket('ws://127.0.0.1:8080');
+        // } catch(ignored) {}
 
         setTimeout(this._connectLoop.bind(this), 0);
         // setTimeout(this._sendLoop.bind(this), 0);
