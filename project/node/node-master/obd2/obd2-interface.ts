@@ -10,7 +10,7 @@ class OBD2Interface extends EventEmitter {
 	
 	private writeBusy: boolean = false;
 	private brokenPipe: boolean = false;
-	private timeout: number = 100;
+	private timeout: number = 200;
 	private timeoutIncrement: number = 50;
 	
 	private lastCommand: string = ""
@@ -42,6 +42,9 @@ class OBD2Interface extends EventEmitter {
 	public open(port, options) {
 		this.serial = new SerialPort(port, options);
 		this.serial.on("error", (error) => { this.onError(error); });
+		this.serial.on("open", () => {
+			this.emit("open");
+		});
 		//this.serial.on("data", (data: Buffer) => {
 			//console.log(data.toString());
 		//});
@@ -63,31 +66,34 @@ class OBD2Interface extends EventEmitter {
 			this.write(this.lastCommand);
 			return;
 		}
-
+		/*
 		console.log("==============================");
 		console.log(this.bufferedData);
 		console.log("------------------------------")
 		console.log(data);
 		console.log("==============================");
+		*/
+
 		this.bufferedData += data + "\r\n";
 		if(!/[ -~]+(\r|\n)+[A-Fa-f0-9? ]+\r?\n?\r?\n?/.test(this.bufferedData)) {
 			return;
 		}
-		console.log("Matched");
+		
 		let i: number = 0;
 		let element: { input: string, resolve: Function, reject: Function } = null;
 
 		// Loop over our answer queue and see if the input echo in the output matches the elements output.
 		for(i = 0; i < this.answerQueue.length; i++) {
 			element = this.answerQueue[i];
-			if(this.bufferedData.startsWith(element.input)) {
+
+			if(this.bufferedData.startsWith(">" + element.input) || this.bufferedData.startsWith(element.input)) {
 				break;
 			}
 		}
 
 		// If so call its resolve
-		if(element != null) {
-			this.answerQueue = this.answerQueue.splice(i, 1);
+		if(i != this.answerQueue.length) {
+			this.answerQueue.splice(i, 1);
 			element.resolve(this.bufferedData);
 		}
 		this.bufferedData = "";

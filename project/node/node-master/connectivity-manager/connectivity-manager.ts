@@ -205,6 +205,7 @@ class ConnectivityManager {
     private onRequestData(data) {
         if(data.hasOwnProperty("sources") && data.hasOwnProperty("interval")) {
             this.requestedData = data.sources;
+            //this.requestedData = ["pid-12", "pid-15", "pid-17", "pid-31", "pid-51", "pid-66", "pid-69"];
             this.requestedInterval = data.interval;
             this.authenticated = true;
 
@@ -287,7 +288,6 @@ class ConnectivityManager {
         this.transformValuesToArray(data);
 
         if(this.isEndPointConnected()) {
-            
             this.sendOnEndPointConnection({
                 "type": "analytics",
                 "data": data

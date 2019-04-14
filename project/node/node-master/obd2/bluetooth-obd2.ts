@@ -23,14 +23,16 @@ class BluetoothOBD2 extends OBD2 {
             this.bluetoothWatcher.on("connected", () => {
                 console.log("[BluetoothOBD2] Bluetooth device \"" + this.deviceName + "\" mounted at " + this.devicePath);
                 this.obd2Interface.open(this.devicePath, this.serialOptions); 
-
-                if(this.firstConnect) {
-                    this.firstConnect = false;
-                    this.obd2Reader.init().then(() => {
-                        console.log("[BluetoothOBD2] Supported PIDs initalized.");
-                        resolve();
-                    });
-                }
+                this.obd2Interface.on("open", () => {
+                    if(this.firstConnect) {
+                        this.firstConnect = false;
+                        this.obd2Reader.init().then(() => {
+                            console.log("[BluetoothOBD2] Supported PIDs initalized.");
+                            console.log(this.obd2Reader.getSupportedPIDs());
+                            resolve();
+                        });
+                    }
+                });
             });
 
             this.bluetoothWatcher.on("closed", () => {
