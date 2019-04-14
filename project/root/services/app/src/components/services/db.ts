@@ -52,7 +52,7 @@ export class Db {
             // tslint:disable-next-line
             for (const key in data as any) {
                 // tslint:disable-next-line
-                for (const value in (data as any)[key]) {
+                for (const value of (data as any)[key]) {
                     query += ` ($${i}, $${i + 1}),`;
                     values.push(key);
                     values.push(value);
