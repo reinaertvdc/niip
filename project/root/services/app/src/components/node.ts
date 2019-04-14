@@ -42,6 +42,8 @@ export class Node {
                 }
             } else if (type === "analytics") {
                 // TODO store data
+            } else {
+                this.ws.close();
             }
         } catch (error) { this.ws.close(); }
     }
