@@ -8,4 +8,4 @@ RUN npm install --only=prod
 
 USER node
 
-CMD [ "node", "src/index.js" ]
+CMD [ "node_modules/.bin/ts-node", "src/index.ts" ]

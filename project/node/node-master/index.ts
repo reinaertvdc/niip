@@ -1,25 +1,37 @@
-import { OBD2DataReader } from "./obd2/obd2-data-reader";
-import { OBD2Interface } from "./obd2/obd2-interface";
+/*
+import { BluetoothOBD2 } from "./obd2/bluetooth-obd2";
 
-
-let obdint = new OBD2Interface("/dev/rfcomm0", {
-	baudRate: 38400
+let obd2 = new BluetoothOBD2("OBDII", "/dev/rfcomm0", {
+	"baudRate": 38400
 });
 
-let reader = new OBD2DataReader(obdint);
-
-setTimeout(() => {
-	console.log("Initing reader.");
-	reader.init().then(() => {
-		console.log("Reader inited.");
-		console.log("Supported PIDs")
-		console.log(reader.getSupportedPIDs());
-		reader.getAllPIDData(true).then((dataArray: Array<any>) => {
-			dataArray.forEach((value) => {
-				console.log(value);
-			});
+obd2.init().then(() => {
+	console.log("[Main] BluetoothOBD2 initialised.");
+	obd2.getAllCurrentData().then((dataArray: Array<any>) => {
+		console.log("[Main] Received all PID data.");
+		dataArray.forEach((value) => {
+			console.log(value);
 		});
 	});
-}, 100);
+});
+*/
 
+import { DataProvider } from "./dataprovider/dataprovider"
+
+function randInt(min, max) {
+	return new Promise((resolve, reject) => {
+		resolve(Math.floor(Math.random() * (max - min)) + min);
+	});
+}
+
+var provider: DataProvider = DataProvider.getInstance();
+provider.register({
+	"key": "rand-int-10-50",
+	"description": "Gets a random integer between 10 and 50.",
+	"source": randInt,
+	"thisObject": null,
+	"arguments": [10, 50]
+});
+
+// This is to stop node from closing
 setInterval(() => {}, 1 << 30);

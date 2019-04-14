@@ -10,12 +10,14 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^11.11.7",
+    "@types/node": "^11.13.4",
     "@types/serialport": "^7.0.2",
     "ts-node": "^8.0.3",
     "typescript": "^3.3.4000"
   },
   "dependencies": {
-    "serialport": "^7.1.4"
+    "serialport": "^7.1.4",
+    "uuid": "^3.3.2",
+    "ws": "^6.2.1"
   }
 }

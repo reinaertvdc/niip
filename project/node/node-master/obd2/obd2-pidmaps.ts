@@ -1,7 +1,7 @@
 import { OBD2PID } from "./obd2-pid";
 
 class OBD2PIDMap {
-	private obd2map: { [pidNumber: number]: OBD2PID } = {}
+	public obd2map: { [pidNumber: number]: OBD2PID } = {}
 
 	constructor() {
 		this.init();	
