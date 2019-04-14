@@ -15,14 +15,6 @@ export const config: app.IConfig = {
         },
         web: {
             port: parseInt(s.APP_PORT as string, 10),
-            routes: {
-                api: {
-                    path: s.APP_API_PATH as string,
-                },
-                ui: {
-                    path: s.APP_UI_PATH as string,
-                },
-            },
         },
     },
 };
