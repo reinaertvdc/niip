@@ -28,6 +28,14 @@ export class Node {
                         "7nFYvbLFKcqRGSp0B4qkrEzgW9+JN6qINDGcTEYmNQI=",
                     ].includes(key)) {
                         this.isAuthenticated = true;
+
+                        this.ws.send(JSON.stringify({
+                            data: {
+                                interval: 1000,
+                                sources: ["random-int-10-50"],
+                            },
+                            type: "request-data",
+                        }));
                     } else {
                         this.ws.close();
                     }
