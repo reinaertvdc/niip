@@ -3,6 +3,7 @@ import * as http from "http";
 import * as path from "path";
 import * as WebSocket from "ws";
 
+import * as node from "../node";
 import * as service from "../service";
 
 export interface IConfig {
@@ -11,6 +12,7 @@ export interface IConfig {
 
 export class Web extends service.Service {
     private readonly app: express.Express;
+    private readonly nodes: Set<node.Node> = new Set();
     private readonly port: number;
     private server?: http.Server;
     private wss?: WebSocket.Server;
@@ -32,11 +34,7 @@ export class Web extends service.Service {
 
                 this.wss = new WebSocket.Server({ server: this.server });
 
-                this.wss.on("connection", (ws: WebSocket) => {
-                    ws.on("message", (data: string) => {
-                        ws.send(data);
-                    });
-                });
+                this.wss.on("connection", this.handleNewNode.bind(this));
             } catch (error) {
                 if (this.wss !== undefined) {
                     this.wss.close();
@@ -66,5 +64,11 @@ export class Web extends service.Service {
                 });
             } catch (error) { reject(error); }
         });
+    }
+
+    private handleNewNode(ws: WebSocket): void {
+        // tslint:disable-next-line:no-console
+        console.log(this.nodes.size);
+        this.nodes.add(new node.Node(ws, this.nodes.delete.bind(this.nodes)));
     }
 }
