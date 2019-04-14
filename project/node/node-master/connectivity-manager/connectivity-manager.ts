@@ -53,7 +53,7 @@ class ConnectivityManager {
         this.dataSocket.connected = false;
 
         this.dataSocket.on("message", (data) => {
-            console.log("[ConnectivityManager] Message: " + data);
+            console.log("[ConnectivityManager] Data Message: " + data);
             this.onDataMessage(data);
         });
 
@@ -87,6 +87,7 @@ class ConnectivityManager {
     }
 
     private sendOnDataConnection(object) {
+        console.log("Send Data: " + JSON.stringify(object));
         this.dataSocket.send(JSON.stringify(object), (error) => {
             if(error) {
                 this.onDataConnectionError(object, error);
@@ -95,6 +96,8 @@ class ConnectivityManager {
     }
 
     private sendOnEndPointConnection(object) {
+        console.log("[ConnectivityManager] Endpoint send: " + object);
+
         this.endPointSocket.send(JSON.stringify(object), (error) => {
             if(error) {
                 this.onEndPointConnectionError(object, error);
@@ -111,7 +114,7 @@ class ConnectivityManager {
 
         this.sendOnDataConnection({
             "type": "list-data",
-            "arguments": {
+            "data": {
             }
         });
     }
@@ -154,6 +157,7 @@ class ConnectivityManager {
 
     private onStartDataStream(data) {
         if(data.hasOwnProperty("uuid")) {
+            console.log("UUID: " + data.uuid);
             this.intervalUUID = data.uuid;
         }
     }
@@ -177,6 +181,9 @@ class ConnectivityManager {
     }
 
     private onEndPointMessage(data) {
+        console.log("[ConnectivityManager] Endpoint Message: " + data);
+        data = JSON.parse(data);
+
         if(data.hasOwnProperty("type") && data.hasOwnProperty("data")) {
             if(this.endPointEventMap.has(data.type)) {
                 this.endPointEventMap.get(data.type)(data.data);
@@ -188,6 +195,7 @@ class ConnectivityManager {
         if(data.hasOwnProperty("sources") && data.hasOwnProperty("interval")) {
             this.requestedData = data.sources;
             this.requestedInterval = data.interval;
+            this.authenticated = true;
 
             this.requestData();
         }
@@ -251,14 +259,15 @@ class ConnectivityManager {
     private requestData() {
         if(this.intervalUUID != null) {
             this.stopStream();
-            this.startStream();
         }
+        this.startStream();
     }
 
     private sendAnalytics(data) {
         this.transformValuesToArray(data);
 
         if(this.isEndPointConnected()) {
+            
             this.sendOnEndPointConnection({
                 "type": "analytics",
                 "data": data
@@ -274,7 +283,7 @@ class ConnectivityManager {
             this.buffer = data;
         }
         else {
-            var keys = data.keys();
+            var keys = Object.keys(data);
 
             keys.forEach((key) => {
                 if(this.buffer.hasOwnProperty(key)) {
@@ -294,7 +303,7 @@ class ConnectivityManager {
     }
 
     private transformValuesToArray(data) {
-        var keys = data.keys();
+        var keys = Object.keys(data);
 
         keys.forEach((key) => {
             data[key] = [data[key]];

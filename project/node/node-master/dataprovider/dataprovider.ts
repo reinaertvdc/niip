@@ -67,11 +67,11 @@ class DataProvider {
     }
 
     private onMessage(connection, message) {
-        if(message.hasOwnProperty("type") && message.hasOwnProperty("arguments")) {
+        if(message.hasOwnProperty("type") && message.hasOwnProperty("data")) {
             var type = message.type;
             
             if(this.eventMap.has(type)) {
-                this.eventMap.get(type)(connection, message.arguments);
+                this.eventMap.get(type)(connection, message.data);
             }
         }
     }
@@ -105,6 +105,7 @@ class DataProvider {
         ) {
             var streamUUID = uuid();
             var interval = setInterval(() => {
+                console.log("Interval");
                 this.getMultipleData(payload.sources).then((data) => {
                     var reply = {
                         "type": "data-stream-tick",
@@ -112,6 +113,7 @@ class DataProvider {
                     }
                     reply.data["uuid"] = streamUUID;
 
+                    console.log("Sent data");
                     connection.send(JSON.stringify(reply))
                 })
                 .catch((error) => {
@@ -222,6 +224,7 @@ class DataProvider {
             }
             
             let keySet: Set<string> = new Set(found);
+
             found.forEach((value, index) => {
                 this.getData(value).then((output) => {
                     response[value] = output;

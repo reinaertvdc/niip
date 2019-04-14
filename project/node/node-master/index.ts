@@ -26,7 +26,7 @@ function randInt(min, max) {
 
 var provider: DataProvider = DataProvider.getInstance();
 provider.register({
-	"key": "rand-int-10-50",
+	"key": "random-int-10-50",
 	"description": "Gets a random integer between 10 and 50.",
 	"source": randInt,
 	"thisObject": null,
