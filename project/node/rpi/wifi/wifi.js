@@ -135,22 +135,22 @@ class Router {
     constructor(wifiCheckInterval = 15000, minQuality = 40) {
         this._connectInterval = wifiCheckInterval;
         this._minQuality = minQuality;
-        this._pool = new ByteBufferPool();
+        // this._pool = new ByteBufferPool();
         this._sendBufferAlwaysFirst = [];
         this._sendBufferAlways = [];
         this._sendBufferNocost = [];
         this._sendBufferNocostWhenever = [];
         this._aps = [];
-        try {
-            this._ws = new WebSocket('ws://127.0.0.1:8080');
-        } catch(ignored) {}
+        // try {
+        //     this._ws = new WebSocket('ws://127.0.0.1:8080');
+        // } catch(ignored) {}
 
         setTimeout(this._connectLoop.bind(this), 0);
-        setTimeout(this._sendLoop.bind(this), 0);
+        // setTimeout(this._sendLoop.bind(this), 0);
     }
-    get pool() {
-        return this._pool;
-    }
+    // get pool() {
+    //     return this._pool;
+    // }
     send(data) {
         assert(data instanceof Data);
         if (data.urgency === Data.URGENCY_SEND_ALWAYS_FIRST) {
@@ -317,28 +317,28 @@ class Router {
         });
     }
     _sendLoop() {
-        if (this._ws.readyState === 1) {
-            //TODO: implement
-            try {
-                this._ws.send('test');
-            } catch(ignored) {}
-            setTimeout(this._sendLoop.bind(this), 500);
-            return;
-        }
-        if (this._ws.readyState === 3) {
-            try {
-                this._ws.terminate();
-            } catch(ignored) {}
-            try {
-                this._ws = new WebSocket('ws://127.0.0.1:8080');
-            } catch(ignored) {}
-            setTimeout(this._sendLoop.bind(this), 500);
-            return;
-        }
-        else {
-            setTimeout(this._sendLoop.bind(this), 500);
-            return;
-        }
+        // if (this._ws.readyState === 1) {
+        //     //TODO: implement
+        //     try {
+        //         this._ws.send('test');
+        //     } catch(ignored) {}
+        //     setTimeout(this._sendLoop.bind(this), 500);
+        //     return;
+        // }
+        // if (this._ws.readyState === 3) {
+        //     try {
+        //         this._ws.terminate();
+        //     } catch(ignored) {}
+        //     try {
+        //         this._ws = new WebSocket('ws://127.0.0.1:8080');
+        //     } catch(ignored) {}
+        //     setTimeout(this._sendLoop.bind(this), 500);
+        //     return;
+        // }
+        // else {
+        //     setTimeout(this._sendLoop.bind(this), 500);
+        //     return;
+        // }
     }
 }
 

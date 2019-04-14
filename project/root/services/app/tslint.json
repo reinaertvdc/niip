@@ -9,7 +9,8 @@
         "max-line-length": [
             true,
             80
-        ]
+        ],
+        "no-inferrable-types": false
     },
     "rulesDirectory": []
 }
