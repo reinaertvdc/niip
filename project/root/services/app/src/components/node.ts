@@ -41,7 +41,11 @@ export class Node {
                     }
                 }
             } else if (type === "analytics") {
-                // TODO store data
+                for (const key in data) {
+                    if (!Array.isArray(data[key])) {
+                        this.ws.close();
+                    }
+                }
             } else {
                 this.ws.close();
             }

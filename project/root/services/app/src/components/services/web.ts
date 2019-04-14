@@ -67,8 +67,6 @@ export class Web extends service.Service {
     }
 
     private handleNewNode(ws: WebSocket): void {
-        // tslint:disable-next-line:no-console
-        console.log(this.nodes.size);
         this.nodes.add(new node.Node(ws, this.nodes.delete.bind(this.nodes)));
     }
 }
