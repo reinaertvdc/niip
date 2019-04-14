@@ -105,7 +105,6 @@ class DataProvider {
         ) {
             var streamUUID = uuid();
             var interval = setInterval(() => {
-                console.log("Interval");
                 this.getMultipleData(payload.sources).then((data) => {
                     var reply = {
                         "type": "data-stream-tick",
@@ -113,7 +112,6 @@ class DataProvider {
                     }
                     reply.data["uuid"] = streamUUID;
 
-                    console.log("Sent data");
                     connection.send(JSON.stringify(reply))
                 })
                 .catch((error) => {
