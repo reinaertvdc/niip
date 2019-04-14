@@ -12,12 +12,12 @@ interface DataSource {
 
 class DataProvider {
     private static instance: DataProvider = null;
+
     private dataSources: Map<string, DataSource> = new Map();
     
     private eventMap: Map<string, Function> = new Map();
     private streamMap: Map<string, any> = new Map();
 
-    private server;
     private wsServer;
 
     private constructor() {
@@ -25,6 +25,10 @@ class DataProvider {
         this.createServer();
     }
 
+    /**
+     * Function that inits the eventmap, the eventmap is used to bridge incoming events to functions
+     * The functions should have 2 parameters: connection, arguments
+     */
     private initEventMap() {
         this.onStartDataStream = this.onStartDataStream.bind(this);
         this.onStopDataStream = this.onStopDataStream.bind(this);
@@ -32,6 +36,7 @@ class DataProvider {
         this.onGetData = this.onGetData.bind(this);
         this.getData = this.getData.bind(this);
         this.getMultipleData = this.getMultipleData.bind(this);
+
         this.eventMap.set("start-data-stream", this.onStartDataStream);
         this.eventMap.set("stop-data-stream", this.onStopDataStream);
         this.eventMap.set("list-data", this.onListData);
@@ -157,7 +162,10 @@ class DataProvider {
 
         let result = sourcesIt.next();
         while(!result.done) {
-            sources.push(result.value);
+            sources.push({
+                "key": result.value.key,
+                "description": result.value.description
+            });
             result = sourcesIt.next();
         }
 
