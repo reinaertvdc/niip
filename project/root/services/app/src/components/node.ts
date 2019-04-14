@@ -1,11 +1,19 @@
 import * as WebSocket from "ws";
 
+import * as db from "./services/db";
+
 export class Node {
+    private readonly dbService: db.Db;
     private isAuthenticated: boolean = false;
     private readonly ws: WebSocket;
 
-    public constructor(ws: WebSocket, onClose: (node: Node) => void) {
+    public constructor(
+        ws: WebSocket,
+        dbService: db.Db,
+        onClose: (node: Node) => void,
+    ) {
         this.ws = ws;
+        this.dbService = dbService;
 
         ws.on("message", this.handleMessage.bind(this));
         ws.on("close", () => { onClose(this); });
@@ -41,7 +49,15 @@ export class Node {
                     }
                 }
             } else if (type === "analytics") {
-                // TODO store data
+                for (const key in data) {
+                    if (!Array.isArray(data[key])) {
+                        this.ws.close();
+                    }
+                }
+
+                this.dbService.insertAnalytics(data);
+            } else {
+                this.ws.close();
             }
         } catch (error) { this.ws.close(); }
     }

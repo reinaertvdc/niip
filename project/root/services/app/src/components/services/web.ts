@@ -6,21 +6,25 @@ import * as WebSocket from "ws";
 import * as node from "../node";
 import * as service from "../service";
 
+import * as db from "./db";
+
 export interface IConfig {
     readonly port: number;
 }
 
 export class Web extends service.Service {
     private readonly app: express.Express;
+    private readonly dbService: db.Db;
     private readonly nodes: Set<node.Node> = new Set();
     private readonly port: number;
     private server?: http.Server;
     private wss?: WebSocket.Server;
 
-    public constructor(config: IConfig) {
+    public constructor(config: IConfig, dbService: db.Db) {
         super();
 
         this.port = config.port;
+        this.dbService = dbService;
         this.app = (express as unknown as () => express.Express)();
 
         this.app.use("/", express.static(path.join(process.cwd(), "public")));
@@ -67,8 +71,9 @@ export class Web extends service.Service {
     }
 
     private handleNewNode(ws: WebSocket): void {
-        // tslint:disable-next-line:no-console
-        console.log(this.nodes.size);
-        this.nodes.add(new node.Node(ws, this.nodes.delete.bind(this.nodes)));
+        this.nodes.add(new node.Node(
+            ws,
+            this.dbService,
+            this.nodes.delete.bind(this.nodes)));
     }
 }

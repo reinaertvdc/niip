@@ -18,7 +18,7 @@ export class App extends Service {
         super();
 
         this.dbService = new db.Db(config.services.db);
-        this.webService = new web.Web(config.services.web);
+        this.webService = new web.Web(config.services.web, this.dbService);
     }
 
     protected async onStart(): Promise<void> { await this.webService.start(); }
