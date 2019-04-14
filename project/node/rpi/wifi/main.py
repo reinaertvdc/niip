@@ -7,6 +7,10 @@ import os
 import threading
 
 
+HOST_ADDR = '0.0.0.0'
+HOST_PORT = 2222
+
+
 wifi = pywifi.PyWiFi()
 
 
@@ -185,7 +189,7 @@ class WifiRouter:
     def add_ap(self, ap: AP):
         self._aps.append(AP)
     
-    def send(self, dest_addr: str, dest_port: int, dest_proto: int, urgence: int, data: bytes):
+    def send(self, dest_proto: int, urgence: int, data: bytes):
         pass
 
 
