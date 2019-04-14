@@ -146,7 +146,7 @@ class Router {
         } catch(ignored) {}
 
         setTimeout(this._connectLoop.bind(this), 0);
-        setTimeout(this._sendLoop.bind(this), 0);
+        // setTimeout(this._sendLoop.bind(this), 0);
     }
     get pool() {
         return this._pool;
@@ -317,28 +317,28 @@ class Router {
         });
     }
     _sendLoop() {
-        if (this._ws.readyState === 1) {
-            //TODO: implement
-            try {
-                this._ws.send('test');
-            } catch(ignored) {}
-            setTimeout(this._sendLoop.bind(this), 500);
-            return;
-        }
-        if (this._ws.readyState === 3) {
-            try {
-                this._ws.terminate();
-            } catch(ignored) {}
-            try {
-                this._ws = new WebSocket('ws://127.0.0.1:8080');
-            } catch(ignored) {}
-            setTimeout(this._sendLoop.bind(this), 500);
-            return;
-        }
-        else {
-            setTimeout(this._sendLoop.bind(this), 500);
-            return;
-        }
+        // if (this._ws.readyState === 1) {
+        //     //TODO: implement
+        //     try {
+        //         this._ws.send('test');
+        //     } catch(ignored) {}
+        //     setTimeout(this._sendLoop.bind(this), 500);
+        //     return;
+        // }
+        // if (this._ws.readyState === 3) {
+        //     try {
+        //         this._ws.terminate();
+        //     } catch(ignored) {}
+        //     try {
+        //         this._ws = new WebSocket('ws://127.0.0.1:8080');
+        //     } catch(ignored) {}
+        //     setTimeout(this._sendLoop.bind(this), 500);
+        //     return;
+        // }
+        // else {
+        //     setTimeout(this._sendLoop.bind(this), 500);
+        //     return;
+        // }
     }
 }
 
