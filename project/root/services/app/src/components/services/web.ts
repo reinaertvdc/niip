@@ -27,7 +27,9 @@ export class Web extends service.Service {
         this.dbService = dbService;
         this.app = (express as unknown as () => express.Express)();
 
-        this.app.use("/", express.static(path.join(process.cwd(), "public")));
+        const uiPath: string = path.join(process.cwd(), "ui", "build");
+
+        this.app.use("/", express.static(uiPath));
     }
 
     protected async onStart(): Promise<void> {
