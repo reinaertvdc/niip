@@ -6,7 +6,7 @@ class OBD2PID {
 	public parse(dataArray: Uint8Array, addUnit: boolean = false): any {
 		let data: any = this.parseFunction(dataArray);
 		// Add the data unit if the output is just a number
-		if((data instanceof Number) && addUnit && this.dataUnit != null) {
+		if((typeof data == "number") && addUnit && this.dataUnit != null) {
 			data = String(data)
 			data += this.dataUnit;
 		}

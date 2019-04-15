@@ -9,7 +9,7 @@ class BluetoothWatcher extends EventEmitter {
     private mac: string;
 
     private timeout: number = 1 * 1000;
-    private maxTimeout: number = 10 * 60 * 1000;
+    private maxTimeout: number = 2 * 1 * 1000;
     
     private openConnectionTimer = null;
     private openConnectionTimeout = 10 * 1000;
@@ -62,6 +62,8 @@ class BluetoothWatcher extends EventEmitter {
                             let mac = this.macRE.exec(split);
                             if(mac != null && mac.length > 0) {
                                 scan.stdin.write("exit\n");
+                                scan.stdin.write("pair " + mac[0] + "\n");
+                                scan.stdin.write("1234\n");
                                 resolve(mac[0]);
                             }
                         }
@@ -71,6 +73,7 @@ class BluetoothWatcher extends EventEmitter {
 
             scan.stdin.write("power on\n");
             scan.stdin.write("scan on\n");
+            scan.stdin.write("pairable on\n");
             scan.stdin.write("devices\n");
         });
     }

@@ -27,6 +27,7 @@ class OBD2DataReader {
 	private readSupportedPIDs(): Promise<void> {
 		return new Promise((resolve, reject) => {
 			this.getPIDData(0x00, false).then((dataArray: Array<number>) => {
+				console.log(dataArray);
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
 				return this.getPIDData(0x20, false);
 			})
@@ -61,17 +62,29 @@ class OBD2DataReader {
 	}
 
 	public getAllPIDData(addUnit: boolean = true): Promise<Array<any>> {
-		let promise = Promise.all(this.supportedPIDs.map(pidNumber => {
-			return this.getPIDData(pidNumber, addUnit).then((data) => {
-				return {
-					pid: pidNumber,
-					info: this.obdMap.get(pidNumber),
-					value: data
-				};
-			});
-		}));
+		var promises = [];
+		
+		for(var i = 0; i < this.supportedPIDs.length; i++) {
+			var promise = new Promise((resolve, reject) => {
+				var pidNumber = this.supportedPIDs[i];
+				this.getPIDData(this.supportedPIDs[i], addUnit).then((data) => {
+					console.log("PID: " + pidNumber + " completed.");
+					var info = this.obdMap.get(pidNumber);
 
-		return promise;
+					resolve({
+						pid: pidNumber,
+						description: info.description,
+						value: data
+					});
+				}).catch((error) => {
+					reject(error);
+				});
+			});
+			
+			promises.push(promise);
+		}
+
+		return Promise.all(promises);
 	}
 
 	public getPIDData(pidNumber: number, addUnit: boolean = true): any {
