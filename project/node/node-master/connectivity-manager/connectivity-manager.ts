@@ -280,8 +280,8 @@ class ConnectivityManager {
         // Check if the payload has the correct structure
         if(data.hasOwnProperty("sources") && data.hasOwnProperty("interval")) {
             // Extract the wanted data and the interval 
-            this.requestedData = data.sources;
-            //this.requestedData = ["pid-12", "pid-15", "pid-17", "pid-31", "pid-51", "pid-66", "pid-69"];  // Use this if you want to fetch PID data instead of server requested data
+            //this.requestedData = data.sources;
+            this.requestedData = ["pid-12"];  // Use this if you want to fetch PID data instead of server requested data
             this.requestedInterval = data.interval;
             // This message should be the first response from the server so we know we are authenticated if we receive this
             this.authenticated = true;

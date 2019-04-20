@@ -1,15 +1,21 @@
 import { OBD2PIDMap } from "./obd2-pidmaps";
 import { OBD2Interface } from "./obd2-interface"
 import { OBD2PID } from "./obd2-pid";
+import * as fs from "fs";
 
 class OBD2DataReader {
 	private obdMap: OBD2PIDMap;
 	private obdInterface: OBD2Interface;
 	private supportedPIDs: Array<number> = [0x00];
+	private logFile: any = null;
 
-	constructor(obd2interface: OBD2Interface) {
+	constructor(obd2interface: OBD2Interface, logFile: string = null) {
 		this.obdMap = new OBD2PIDMap();
 		this.obdInterface = obd2interface;
+		
+		if(logFile != null) {
+			this.logFile = logFile;
+		}
 	}
 
 	public setInterface(obdInterface: OBD2Interface) {
@@ -96,6 +102,7 @@ class OBD2DataReader {
 				}
 				this.obdInterface.sendCommand("01" + pidString)
 				.then((data: any) => {
+					this.logPID(pidNumber, data);
 					resolve(this.parsePIDData(pidNumber, data, addUnit));
 				})
 				.catch((error) => {
@@ -125,6 +132,18 @@ class OBD2DataReader {
 			return this.obdMap.get(pidNumber).parse(byteArray, addUnit);
 		}
 		return byteArray;
+	}
+
+	private logPID(pidNumber: number, pidData: Uint8Array) {
+		if(this.logFile != null) {
+			let tempString = "" + (Date.now()) + ", " + pidNumber +  ", " + Buffer.from(pidData).toString("hex") + "\n";
+			
+			fs.appendFile(this.logFile, tempString, (error) => {
+				if(error) {
+					console.log("[OBD2DataReader] Error appending to file: " + error);
+				}
+			});
+		}
 	}
 }
 

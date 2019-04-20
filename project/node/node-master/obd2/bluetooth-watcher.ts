@@ -126,7 +126,7 @@ class BluetoothWatcher extends EventEmitter {
     }
 
     private onClose(event) {
-
+        console.log("[BT] Closed.");
     }
 
     private onError(event) {
