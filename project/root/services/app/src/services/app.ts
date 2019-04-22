@@ -44,11 +44,16 @@ export class App extends Process {
             company: new company.Company(this.svc.db),
             node: new node.Node(config.controllers.node, this.svc.db),
         });
-
-        new Dummy(this.ctrl).loadData();
     }
 
-    protected async onStart(): Promise<void> { await this.svc.web.start(); }
+    protected async onStart(): Promise<void> {
+        await this.svc.web.start();
+
+        await this.ctrl.company.init();
+        await this.ctrl.node.init();
+
+        await new Dummy(this.ctrl).loadData();
+    }
 
     protected async onStop(): Promise<void> { await this.svc.web.stop(); }
 }

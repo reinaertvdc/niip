@@ -14,6 +14,19 @@ export abstract class Model {
         await this.doSafely(this.unsafeClearTable.bind(this));
     }
 
+    public async init(): Promise<null> {
+        return this.createTable();
+    }
+
+    protected async createTable(): Promise<null> {
+        if (!await this.tableExists()) {
+            return this.unsafeCreateTable();
+        }
+
+        // tslint:disable-next-line:no-null-keyword
+        return null;
+    }
+
     protected async doSafely<T>(
         // tslint:disable-next-line:no-any
         action: (...args: any) => Promise<T>, ...args: any
