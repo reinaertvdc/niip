@@ -1,8 +1,16 @@
-import * as app from "./components/services/app";
+import * as app from "../services/app";
 
 const s: NodeJS.ProcessEnv = process.env;
 
-export const config: app.IConfig = {
+export const config: app.IConfig = Object.freeze({
+    controllers: {
+        node: {
+            key: {
+                numBytes: parseInt(s.APP_NODE_KEY_NUM_BYTES as string, 10),
+                saltRounds: parseInt(s.APP_NODE_KEY_SALT_ROUNDS as string, 10),
+            },
+        },
+    },
     services: {
         db: {
             cn: {
@@ -17,4 +25,4 @@ export const config: app.IConfig = {
             port: parseInt(s.APP_PORT as string, 10),
         },
     },
-};
+});
