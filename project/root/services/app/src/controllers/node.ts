@@ -62,7 +62,14 @@ export class Node extends Model {
     }
 
     public async getById(value: number): Promise<IProps> {
-        return (await this.select("id = $1", [value]))[0];
+        // tslint:disable-next-line:no-any
+        const result: any = (await this.select("id = $1", [value]))[0];
+
+        return {
+            companyId: result.company_id,
+            id: result.id,
+            key: result.key,
+        };
     }
 
     public async verifyKey(id: number, value: string): Promise<boolean> {

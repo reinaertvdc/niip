@@ -35,14 +35,14 @@ export class App extends Process {
 
         const dbService: db.Db = new db.Db(config.services.db);
 
-        this.svc = Object.freeze({
-            db: dbService,
-            web: new web.Web(config.services.web, dbService),
+        this.ctrl = Object.freeze({
+            company: new company.Company(dbService),
+            node: new node.Node(config.controllers.node, dbService),
         });
 
-        this.ctrl = Object.freeze({
-            company: new company.Company(this.svc.db),
-            node: new node.Node(config.controllers.node, this.svc.db),
+        this.svc = Object.freeze({
+            db: dbService,
+            web: new web.Web(config.services.web, this.ctrl),
         });
     }
 
