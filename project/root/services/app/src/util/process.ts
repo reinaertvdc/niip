@@ -5,7 +5,7 @@ export enum Status {
     Stopping = "stopping",
 }
 
-export abstract class Service {
+export abstract class Process {
     private status: Status = Status.Stopped;
 
     public getStatus(): Status { return this.status; }
@@ -39,7 +39,7 @@ export abstract class Service {
     ): Promise<void> {
         if (this.status !== before) {
             throw new Error(
-                `Service must me ${before}, is ${this.status} instead.`,
+                `Process must me ${before}, is ${this.status} instead.`,
             );
         }
 

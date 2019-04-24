@@ -1,5 +1,5 @@
-import { App } from "./components/services/app";
-import { config } from "./config";
+import { App } from "./services/app";
+import { config } from "./util/config";
 
 const app: App = new App(config);
 
