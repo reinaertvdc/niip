@@ -1,7 +1,7 @@
 import pycom
 import binascii
 import time
-import socket
+import usocket as socket
 from network import LoRa
 
 class LoRaHelper:
