@@ -1,21 +1,15 @@
 import { OBD2PIDMap } from "./obd2-pidmaps";
 import { OBD2Interface } from "./obd2-interface"
 import { OBD2PID } from "./obd2-pid";
-import * as fs from "fs";
 
 class OBD2DataReader {
 	private obdMap: OBD2PIDMap;
 	private obdInterface: OBD2Interface;
 	private supportedPIDs: Array<number> = [0x00];
-	private logFile: any = null;
 
-	constructor(obd2interface: OBD2Interface, logFile: string = null) {
+	constructor(obd2interface: OBD2Interface) {
 		this.obdMap = new OBD2PIDMap();
 		this.obdInterface = obd2interface;
-		
-		if(logFile != null) {
-			this.logFile = logFile;
-		}
 	}
 
 	public setInterface(obdInterface: OBD2Interface) {
@@ -67,13 +61,13 @@ class OBD2DataReader {
 		});
 	}
 
-	public getAllPIDData(addUnit: boolean = true): Promise<Array<any>> {
+	public getAllPIDData(parseData: boolean = true, addUnit: boolean = true): Promise<Array<any>> {
 		var promises = [];
 		
 		for(var i = 0; i < this.supportedPIDs.length; i++) {
 			var promise = new Promise((resolve, reject) => {
 				var pidNumber = this.supportedPIDs[i];
-				this.getPIDData(this.supportedPIDs[i], addUnit).then((data) => {
+				this.getPIDData(this.supportedPIDs[i], parseData, addUnit).then((data) => {
 					console.log("PID: " + pidNumber + " completed.");
 					var info = this.obdMap.get(pidNumber);
 
@@ -93,7 +87,7 @@ class OBD2DataReader {
 		return Promise.all(promises);
 	}
 
-	public getPIDData(pidNumber: number, addUnit: boolean = true): any {
+	public getPIDData(pidNumber: number, parseData = true, addUnit: boolean = true): any {
 		return new Promise((resolve, reject) => {
 			if(this.supportedPIDs.indexOf(pidNumber) > -1) {
 				let pidString: string = pidNumber.toString(16);
@@ -102,8 +96,12 @@ class OBD2DataReader {
 				}
 				this.obdInterface.sendCommand("01" + pidString)
 				.then((data: any) => {
-					this.logPID(pidNumber, data);
-					resolve(this.parsePIDData(pidNumber, data, addUnit));
+					if(parseData) {
+						resolve(this.parsePIDData(pidNumber, data, addUnit));
+					}
+					else {
+						resolve(data);
+					}
 				})
 				.catch((error) => {
 					console.log("Error: " + error);
@@ -132,18 +130,6 @@ class OBD2DataReader {
 			return this.obdMap.get(pidNumber).parse(byteArray, addUnit);
 		}
 		return byteArray;
-	}
-
-	private logPID(pidNumber: number, pidData: Uint8Array) {
-		if(this.logFile != null) {
-			let tempString = "" + (Date.now()) + ", " + pidNumber +  ", " + Buffer.from(pidData).toString("hex") + "\n";
-			
-			fs.appendFile(this.logFile, tempString, (error) => {
-				if(error) {
-					console.log("[OBD2DataReader] Error appending to file: " + error);
-				}
-			});
-		}
 	}
 }
 

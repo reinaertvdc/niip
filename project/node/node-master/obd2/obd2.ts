@@ -21,12 +21,12 @@ class OBD2 {
         });
     }
 
-    public getCurrentData(PIDNumber: number, addUnit: boolean = true): Promise<any> {
-        return this.obd2Reader.getPIDData(PIDNumber, addUnit);
+    public getCurrentData(PIDNumber: number, parseData: boolean = true, addUnit: boolean = true): Promise<any> {
+        return this.obd2Reader.getPIDData(PIDNumber, parseData, addUnit);
     }
 
-    public getAllCurrentData(addUnit: boolean = true): Promise<Array<any>> {
-        return this.obd2Reader.getAllPIDData(addUnit);
+    public getAllCurrentData(parseData: boolean = true, addUnit: boolean = true): Promise<Array<any>> {
+        return this.obd2Reader.getAllPIDData(parseData, addUnit);
     }
 
     public getSupportedPIDs(): Array<number> {

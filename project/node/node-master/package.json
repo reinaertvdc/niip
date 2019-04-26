@@ -13,7 +13,8 @@
     "@types/node": "^11.13.4",
     "@types/serialport": "^7.0.2",
     "ts-node": "^8.0.3",
-    "typescript": "^3.3.4000"
+    "tslint": "^5.16.0",
+    "typescript": "^3.4.4"
   },
   "dependencies": {
     "serialport": "^7.1.4",

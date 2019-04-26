@@ -1,8 +1,8 @@
 import * as SerialPort from "serialport";
 import * as Regex from "@serialport/parser-regex";
-import { EventEmitter } from "events";
+import { OBD2InterfaceBase } from "./obd2-interface-base"
 
-class OBD2Interface extends EventEmitter {
+class OBD2Interface extends OBD2InterfaceBase {
 	private serialDevice: string;
 	private serialOptions: any;
 	private serial: SerialPort;
@@ -11,7 +11,7 @@ class OBD2Interface extends EventEmitter {
 	private writeBusy: boolean = false;
 	private brokenPipe: boolean = false;
 	private timeout: number = 200;
-	private timeoutIncrement: number = 50;
+	private timeoutIncrement: number = 200;
 	
 	private lastCommand: string = ""
 	private writeQueue: Array<string> = [];
@@ -25,8 +25,8 @@ class OBD2Interface extends EventEmitter {
 		this.serialOptions = serialOptions;
 	}
 
-	public init() {
-		this.open(this.serialDevice, this.serialOptions);
+	public init(): Promise<void> {
+		return this.open(this.serialDevice, this.serialOptions);
 	}
 
 	public clear() {
@@ -39,41 +39,28 @@ class OBD2Interface extends EventEmitter {
 		this.bufferedData = "";
 	}
 
-	public open(port, options) {
-		this.serial = new SerialPort(port, options);
-		this.serial.on("error", (error) => { this.onError(error); });
-		this.serial.on("open", () => {
-			this.emit("open");
+	public open(port, options): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			this.serial = new SerialPort(port, options);
+			this.serial.on("error", (error) => { this.onError(error); });
+			this.serial.on("open", () => {
+				this.emit("open");
+				resolve();
+			});
+
+			this.parser = this.serial.pipe(new Regex({ regex: /\r/ }));
+			this.parser.on("data", this.onData);
+			this.parser.on("error", (error) => { this.onError(error); });
+			this.nextWrite();
 		});
-		//this.serial.on("data", (data: Buffer) => {
-			//console.log(data.toString());
-		//});
-		// Read the data when it matches this format
-		// Format is as following:
-		// 0100\r					// Repeat of the input
-		// 41 00 A0 B0 C0 D0\r\r	// Command repeated, output of command, all in hex with spaces between bytes, can be a '?' if command not supported
-		this.parser = this.serial.pipe(new Regex({ regex: /\r/ }));
-		this.parser.on("data", this.onData);
-		this.parser.on("error", (error) => { this.onError(error); });
-		this.nextWrite();
 	}
 
 	private onData(data: string): void {
-		if(data.toLocaleLowerCase().search("stopped") != -1) {
-			console.log("Sending data too fast, increasing timeout.");
-			this.timeout += this.timeoutIncrement;
-			this.bufferedData = "";
-			this.write(this.lastCommand);
+		if(this.checkForStopped(data)) {
 			return;
 		}
-		/*
-		console.log("==============================");
-		console.log(this.bufferedData);
-		console.log("------------------------------")
-		console.log(data);
-		console.log("==============================");
-		*/
 
+		// Check if we find the correct pattern in our data
 		this.bufferedData += data + "\r\n";
 		if(!/[ -~]+(\r|\n)+[A-Fa-f0-9? ]+\r?\n?\r?\n?/.test(this.bufferedData)) {
 			return;
@@ -105,13 +92,26 @@ class OBD2Interface extends EventEmitter {
 		}
 	}
 
+	private checkForStopped(data: string): boolean {
+		if(data.toLocaleLowerCase().search("stopped") != -1) {
+			console.log("[OBD2Interface] Sending data too fast, increasing timeout.");
+			this.timeout += this.timeoutIncrement;
+			this.bufferedData = "";
+			console.log("[OBD2Interface] Repeating command: " + this.lastCommand);
+			this.write(this.lastCommand);
+			return true;
+		}
+
+		return false;
+	}
+
 	private onError(error) {
-		console.log("[OBD2Interface]: " + error);
+		console.log("[OBD2Interface] " + error);
 		this.brokenPipe = true;
 		this.emit("error", error);
 	}
 
-	public sendCommand(data: string) {
+	public sendCommand(data: string): Promise<string> {
 		if(this.mayWrite()) {
 			this.write(data);
 		}
@@ -120,7 +120,7 @@ class OBD2Interface extends EventEmitter {
 		}
 
 		// Return a promise, store the resolve functions for later when we receive the reply from this command
-		return new Promise((resolve: Function, reject: Function) => {
+		return new Promise<string>((resolve: Function, reject: Function) => {
 			this.answerQueue.push({ input: data, resolve: resolve, reject: reject });
 		});
 	}
@@ -143,6 +143,7 @@ class OBD2Interface extends EventEmitter {
 	private write(input: string) {
 		this.writeBusy = true;
 		setTimeout(() => {
+			console.log("Input: " + input);
 			this.lastCommand = input;
 			this.serial.write(input + "\r\n", (error) => {
 				if(error) {
