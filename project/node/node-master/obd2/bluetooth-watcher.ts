@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { spawn } from "child_process";
 
-import * as util from "util";
+import { BluetoothCTL, BTInfo } from "./bluetoothctl";
 
 class BluetoothWatcher extends EventEmitter {
     private name: string;
@@ -14,68 +14,31 @@ class BluetoothWatcher extends EventEmitter {
     private openConnectionTimer = null;
     private openConnectionTimeout = 10 * 1000;
 
-    private macRE = /[A-F0-9]{2}(:[A-F0-9]{2}){5}/;
+    private bt: BluetoothCTL = null;
 
-    constructor(deviceName: string, devicePort: string) {
-        super()
-        this.name = deviceName;
+    constructor(devicePort: string) {
+        super();
         this.port = devicePort;
-
-        this.searchMAC().then((value) => {
-            //console.log("[BT] Found \"" + this.name + "\" at " + value);
-            this.setMAC(value);
-            //console.log("[BT] Trying to connect...");
-            this.connect()
-        })
+        this.bt = new BluetoothCTL();
     }
 
-    public setMAC(mac: string) {
-        this.mac = mac;
-    }
+    public connectToID(deviceName: string) {
+        this.name = deviceName;
+        this.bt.getMAC(deviceName).then((macs: Set<string>) => {
+            if(macs.size == 0) {
+                this.bt.startScanning();
+                let callback = (mac: string, name: string) => {
+                    this.bt.removeListener("new", callback);
+                    this.connectToMAC(mac);
+                };
 
-    public searchMAC(): Promise<string> {
-        return new Promise<string>((resolve, reject) => {
-            let scan = spawn("bluetoothctl");
-            //let grep1 = spawn("grep", [this.name], { stdio: [scan.stdout, "pipe"] });
-
-            scan.stdout.on("data", (data) => {
-                // Transform byte array to string
-                let output: string = String.fromCharCode.apply(null, data);
-                // Process each line
-                let splits: Array<string> = output.split("\n");
-                
-                for(let split in splits) {
-                    split = splits[split].trim();
-                    let foundNew = false;
-
-                    // The scan can give use lines with [NEW], these 
-                    // Can give us the MAC address
-                    if(split.search("[NEW]") != -1) {
-                        split = split.substr(7);
-                        foundNew = true;
-                    }
-                    
-                    // The output of `bluetoothctl
-                    if(split.startsWith("Device") || foundNew) {
-                        split = split.trim();
-                        if(split.endsWith(this.name)) {
-                            let mac = this.macRE.exec(split);
-                            if(mac != null && mac.length > 0) {
-                                scan.stdin.write("exit\n");
-                                scan.stdin.write("pair " + mac[0] + "\n");
-                                scan.stdin.write("1234\n");
-                                resolve(mac[0]);
-                            }
-                        }
-                    }
-                }
-            });
-
-            scan.stdin.write("power on\n");
-            scan.stdin.write("scan on\n");
-            scan.stdin.write("pairable on\n");
-            scan.stdin.write("devices\n");
+                this.bt.on("new", callback);
+            }
         });
+    }
+
+    public connectToMAC(mac: string) {
+        // TODO
     }
 
     public connect() {
@@ -117,7 +80,7 @@ class BluetoothWatcher extends EventEmitter {
             }
 
             this.searchMAC().then((value) => {
-                this.setMAC(value);
+                //this.setMAC(value);
                 this.connect();
             });
         }, this.timeout);

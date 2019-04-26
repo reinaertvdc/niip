@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "serialport": "^7.1.4",
+    "strip-ansi": "^5.2.0",
     "uuid": "^3.3.2",
     "ws": "^6.2.1"
   }
