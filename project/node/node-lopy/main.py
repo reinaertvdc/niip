@@ -19,18 +19,27 @@ def handle_command_send(js):
     data = js['data']
     b = binascii.a2b_base64(data)
     lora.send(b)
-    print(lora.air_time())
     return None
+
+def handle_command_air(js):
+    return lora.air_time()
 
 def handle_command_mac(js):
     return lora.mac()
+
+def handle_command_recv(js):
+    return lora.recv()
 
 def handle_command(js):
     return_vals = {}
     if 'send' in js:
         return_vals['send'] = handle_command_send(js['send'])
+    if 'recv' in js:
+        return_vals['recv'] = handle_command_recv(js['recv'])
     if 'mac' in js:
         return_vals['mac'] = handle_command_mac(js['mac'])
+    if 'air' in js:
+        return_vals['air'] = handle_command_air(js['air'])
     return return_vals
 
 wlan = WLAN(mode=WLAN.AP, ssid='LogiTrack-LoRa', auth=(WLAN.WPA2,'logitrack'))
