@@ -203,12 +203,18 @@ class BluetoothCTL extends EventEmitter {
         this.cli.removeAllListeners();
     }
 
-    public getMAC(deviceName: string): Promise<Set<string>> {
+    public getMAC(deviceName: string, includeKnown: boolean = true, includePaired: boolean = true): Promise<Set<string>> {
         return new Promise<Set<string>>(async (resolve, reject) => {
             let answers: Set<string> = new Set<string>();
 
-            let candidates: BTInfo[] = await this.getKnownDevicesByName(deviceName);
-            let pairedDevices: BTInfo[] = await this.getPairedDevicesByName(deviceName);
+            let candidates: BTInfo[] = [];
+            let pairedDevices: BTInfo[] = [];
+            
+            if(includeKnown)
+                candidates = await this.getKnownDevicesByName(deviceName);
+            if(includePaired) 
+                pairedDevices = await this.getPairedDevicesByName(deviceName);
+
             let combined = [...candidates, ...pairedDevices];
             
             if(combined.length > 0) {

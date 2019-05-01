@@ -1,6 +1,23 @@
+import { BluetoothWatcher } from "./obd2/bluetooth-watcher";
+import { OBD2BluetoothInterface } from "./obd2/obd2-bluetooth-interface";
+
+let watcher = new BluetoothWatcher("/dev/rfcomm0", {
+    baudrate: 38400
+});
+
+watcher.on("connect", (obd2: OBD2BluetoothInterface) => {
+    obd2.sendCommand("0100").then((value) => {
+        console.log(value);
+    });
+});
+
+watcher.connectToID("OBDII");
+
+/*
 import { BluetoothCTL, BTInfo } from "./obd2/bluetoothctl";
 
 let watcher = new BluetoothCTL();
+let device = "OP3T";
 
 watcher.getPairedDevices().then((pairedDevices: BTInfo[]) => {
     console.log("Paired Devices:")
@@ -26,12 +43,13 @@ watcher.getPairedDevices().then((pairedDevices: BTInfo[]) => {
         console.log("\t=======================")
     });
 
-    return watcher.getKnownDevicesByName("OBDII");
+    return watcher.getKnownDevicesByName(device);
 })
-.then((pairedDevices: BTInfo[]) => {
-    console.log("Known Devices By Name OBDII:")
-    pairedDevices.forEach(element => {
+.then((knownDevices: BTInfo[]) => {
+    console.log("Known Devices By Name " + device + ":")
+    knownDevices.forEach(element => {
         let keys = Object.keys(element);
+        connect(element.mac);
 
         keys.forEach((key) => {
             console.log("\t" + key + ": " + element[key]);
@@ -39,10 +57,10 @@ watcher.getPairedDevices().then((pairedDevices: BTInfo[]) => {
         console.log("\t=======================")
     });
 
-    return watcher.getMAC("OBDII");
+    return watcher.getMAC(device, true, false);
 })
 .then((macs: Set<string>) => {
-    console.log("MAC Adresses of OBDII");
+    console.log("MAC Adresses of " + device + "");
     macs.forEach((value) => {
         console.log("\t" + value);
     });
@@ -50,7 +68,7 @@ watcher.getPairedDevices().then((pairedDevices: BTInfo[]) => {
     watcher.startScanning();
     watcher.on("new", (mac: string, name: string) => {
         console.log("New Device: " + mac + " " + name);
-        if(name.localeCompare("OP3T") == 0) {
+        if(name.localeCompare(device) == 0) {
             watcher.pair(mac, null).then((success: boolean) => {
                 console.log("Success: " + success);
             });
@@ -59,14 +77,10 @@ watcher.getPairedDevices().then((pairedDevices: BTInfo[]) => {
     watcher.on("delete", (mac, name) => {
         console.log("Deleted Device: " + mac + " " + name);
     });
+});
 
-    return watcher.getMAC("OP3T");
-})
-.then((macs: Set<string>) => {
-    macs.forEach((mac) => {
-        console.log("Pairing with: " + mac);
-        watcher.pair(mac).then((succes: boolean) => {
-            console.log("Paired: " + succes);
-        })
-    });
-})
+
+function connect(mac) {
+    
+}
+*/
