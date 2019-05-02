@@ -1,12 +1,12 @@
-import { BluetoothWatcher } from "./bluetooth-watcher";
+import { OBD2BluetoothWatcher } from "./obd2-bluetooth-watcher";
 import { OBD2 } from "./obd2";
 
-class BluetoothOBD2 extends OBD2 {
+class OBD2Bluetooth extends OBD2 {
     private deviceName: string;
     private devicePath: string;
     private serialOptions: any;
 
-    private bluetoothWatcher: BluetoothWatcher = null;
+    private bluetoothWatcher: OBD2BluetoothWatcher = null;
     private firstConnect: boolean = true;
     
     constructor(deviceName, devicePath, serialOptions) {
@@ -23,7 +23,7 @@ class BluetoothOBD2 extends OBD2 {
     public init(): Promise<void> {
         return new Promise((resolve, reject) => {
             // First we need a bluetooth watcher
-            this.bluetoothWatcher = new BluetoothWatcher(this.devicePath, this.serialOptions);
+            this.bluetoothWatcher = new OBD2BluetoothWatcher(this.devicePath, this.serialOptions);
             
             // When we have a serial bluetooth connection
             this.bluetoothWatcher.on("connect", (obd2interface ) => {
@@ -51,4 +51,4 @@ class BluetoothOBD2 extends OBD2 {
     }
 }
 
-export { BluetoothOBD2 };
+export { OBD2Bluetooth as BluetoothOBD2 };

@@ -10,10 +10,21 @@ type PIDOutput = {
     data: string;
 }
 
+enum DataType {
+    Command,
+    Data,
+    Stopped,
+    Searching,
+    UnableToConnect,
+    Unknown,
+}
+
 class OBD2BluetoothInterface {
     private serial: any = null;
     private parser: any = null;
 
+    private searching: boolean = true;
+    private searchInterval: any = null;
     private paused: boolean = true;
     private writing: boolean = false;
     private timeoutReference: any = null;
@@ -44,7 +55,13 @@ class OBD2BluetoothInterface {
 
     public resume(): void {
         this.paused = false;
-        this.nextWrite();
+        
+        if(this.searching) {
+            this.startSearch();
+        }
+        else {
+            this.nextWrite();
+        }
     }
     
     public clear(): void {
@@ -76,14 +93,14 @@ class OBD2BluetoothInterface {
     }
 
     private mayWrite(): boolean {
-        return this.serial.isOpen && !this.writing && !this.paused;
+        return this.serial.isOpen && !this.writing && !this.paused && !this.searching;
     }
 
     private write(input: string) {
         this.writing = true;
         
         this.timeoutReference = setTimeout(() => {
-            console.log("[BluetoothOBD2Interface] Sending input: " + input);
+            console.log("[OBD2BluetoothInterface] Sending input: " + input);
             this.lastCommand = input;
             this.timeoutReference = null;
 
@@ -92,35 +109,96 @@ class OBD2BluetoothInterface {
     }
 
     private nextWrite() {
-        if(this.commandQueue.length > 0 && !this.paused) {
+        if(this.commandQueue.length > 0 && !this.paused && !this.searching) {
             let input: string = this.commandQueue[0].input;
             this.write(input);
         }
     }
 
-    private onData(data: string): void {
-        data = data.trim();
-        data = data.replace(">", "");
+    private parseData(binaryData: Buffer): DataType {
+        let data: string = binaryData.toString("utf-8");
+        data = data.trim().replace(">", "");
+        let dataLower = data.toLocaleLowerCase();
 
-        if(data.toLocaleLowerCase().search("stopped") != -1) {
-            this.onStopped();
-            return;
+        if(dataLower.search("stopped") != -1) {
+            return DataType.Stopped;
+        }
+
+        if(dataLower.search("searching") != -1) {
+            return DataType.Searching;
+        }
+
+        if(dataLower.search("unable to connect") != -1) {
+            return DataType.UnableToConnect;
         }
 
         if(data.localeCompare(this.lastCommand) == 0) {
             this.pidOutput.command = data;
-            return;
+            return DataType.Command;
         }
         
         let matches: RegExpExecArray = PID_DATA_RE.exec(data);
         if(matches != null && matches.length == 3) {
-            this.pidOutput.prefix = matches[1].replace(" ", "");
-            this.pidOutput.data = matches[2].replace(" ", "");
+            this.pidOutput.prefix = matches[1].replace(/ /g, "");
+            this.pidOutput.data = matches[2].replace(/ /g, "");
+            return DataType.Data;
         }
 
-        if(this.pidOutput.prefix != null && this.pidOutput.command != null && this.pidOutput.data != null) {
+        return DataType.Unknown;
+    }
+
+    private isPIDOutputComplete(): boolean {
+        return this.pidOutput.prefix != null &&
+               this.pidOutput.command != null &&
+               this.pidOutput.data != null;
+    }
+
+    private onData(binaryData: Buffer): void {
+        let type: DataType = this.parseData(binaryData);
+
+        if(type == DataType.Stopped) {
+            this.onStopped();
+        }
+        else if(type == DataType.Searching) {
+            this.onSearching();
+        }
+        else if(this.isPIDOutputComplete()) {
             this.onAnswer();
         }
+    }
+
+    private onSearchData(binaryData: Buffer): void {
+        let type: DataType = this.parseData(binaryData);
+
+        if(type == DataType.Stopped) {
+            this.onStopped();
+        }
+        else if(this.isPIDOutputComplete()) {
+            this.clearOutput();
+            this.stopSearch();
+        }   
+    }
+
+    private startSearch(): void {
+        this.searching = true;
+        this.parser.removeAllListeners("data");
+        this.parser.on("data", (data: Buffer) => { this.onSearchData(data); });
+        
+        this.searchInterval = setInterval(() => {
+            this.write("0100");
+        }, 2000);
+    }
+
+    private stopSearch(): void {
+        console.log("[OBD2BluetoothInterface] Search mode deactivated, resuming normal mode.")
+        clearInterval(this.searchInterval);
+        this.searchInterval = null;
+        this.parser.removeAllListeners("data");
+        this.parser.on("data", (data: Buffer) => {
+            this.onData(data);
+        });
+        this.searching = false;
+        this.nextWrite();
     }
 
     private onStopped(): void {
@@ -129,8 +207,15 @@ class OBD2BluetoothInterface {
         this.timeout += this.timeoutIncrement;
         this.clearOutput();
 
-        console.log("[BluetoothOBD2Interface] Repeating last command: " + this.lastCommand);
-        // TODO
+        console.log("[OBD2BluetoothInterface] Repeating last command: " + this.lastCommand);
+        this.nextWrite();
+    }
+
+    private onSearching(): void {
+        if(!this.searching) {
+            console.log("[OBD2BluetoothInterface] Entering search mode.");
+            this.startSearch();
+        }
     }
 
     private onAnswer(): void {
@@ -141,6 +226,7 @@ class OBD2BluetoothInterface {
             candidate.resolve(this.pidOutput);
         }
 
+        this.clearOutput();
         this.writing = false;
         this.nextWrite();
     }

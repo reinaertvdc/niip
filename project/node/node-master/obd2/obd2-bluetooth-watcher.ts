@@ -1,9 +1,9 @@
 import { EventEmitter } from "events";
-import { BluetoothCTL, BTInfo } from "./bluetoothctl";
+import { BluetoothCTL, BTInfo } from "../bluetooth/bluetoothctl";
 import { OBD2BluetoothInterface } from "./obd2-bluetooth-interface";
-import { RFCOMM } from "./rfcomm";
+import { RFCOMM } from "../bluetooth/rfcomm";
 
-class BluetoothWatcher extends EventEmitter {
+class OBD2BluetoothWatcher extends EventEmitter {
     private name: string;
     private mac: string;
 
@@ -34,6 +34,10 @@ class BluetoothWatcher extends EventEmitter {
             this.interface.pause();
             this.connectToMAC(this.mac);
         });
+
+        this.rfcomm.on("error", (error) => {
+            console.log("[BluetoothWatcher] RFCOMM error: " + error.toString().trim());
+        })
     }
 
     public connectToID(deviceName: string) {
@@ -112,4 +116,4 @@ class BluetoothWatcher extends EventEmitter {
     }
 }
 
-export { BluetoothWatcher };
+export { OBD2BluetoothWatcher };

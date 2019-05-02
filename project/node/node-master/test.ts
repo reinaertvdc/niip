@@ -1,13 +1,19 @@
-import { BluetoothWatcher } from "./obd2/bluetooth-watcher";
+import { OBD2BluetoothWatcher } from "./obd2/obd2-bluetooth-watcher";
 import { OBD2BluetoothInterface } from "./obd2/obd2-bluetooth-interface";
 
-let watcher = new BluetoothWatcher("/dev/rfcomm0", {
-    baudrate: 38400
+let watcher = new OBD2BluetoothWatcher("/dev/rfcomm0", {
+    baudRate: 38400
 });
 
 watcher.on("connect", (obd2: OBD2BluetoothInterface) => {
     obd2.sendCommand("0100").then((value) => {
         console.log(value);
+
+        setTimeout(() => {
+            obd2.sendCommand("0100").then((value) => {
+                console.log(value);
+            });
+        }, 5000);
     });
 });
 
