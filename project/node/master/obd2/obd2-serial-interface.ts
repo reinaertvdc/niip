@@ -1,25 +1,10 @@
-import { OBD2InterfaceBase, Command } from "./obd2-interface-base";
-const SerialPort = require("serialport");
+import { OBD2Interface, Command, PIDOutput, DataType } from "./obd2-interface";
+
 const Delimiter = require('@serialport/parser-delimiter');
 
 const PID_DATA_RE: RegExp = /(^4[1-9] ?[A-Fa-f0-9]{2})((?: [A-Fa-f0-9]{2})+)/;
 
-type PIDOutput = {
-    command: string;
-    prefix: string;
-    data: string;
-}
-
-enum DataType {
-    Command,
-    Data,
-    Stopped,
-    Searching,
-    UnableToConnect,
-    Unknown,
-}
-
-class OBD2BluetoothInterface {
+class OBD2SerialInterface implements OBD2Interface {
     private serial: any = null;
     private parser: any = null;
 
@@ -37,10 +22,10 @@ class OBD2BluetoothInterface {
 
 
     constructor() {
-
+        
     }
 
-    public setInterface(serialPort: any) {
+    public setPort(serialPort: any) {
         this.serial = serialPort;
         
         this.parser = this.serial.pipe(new Delimiter({ delimiter: "\r" }));
@@ -74,6 +59,10 @@ class OBD2BluetoothInterface {
         this.timeoutIncrement = 50;
     }
 
+    public clearQueue(): void {
+        this.commandQueue = [];
+    }
+
     public clearOutput(): void {
         this.pidOutput = {
             command: null,
@@ -82,12 +71,12 @@ class OBD2BluetoothInterface {
         }
     }
 
-    public sendCommand(command: string): Promise<Command> {
+    public sendCommand(command: string): Promise<PIDOutput> {
         if(this.mayWrite()) {
             this.write(command);
         }
 
-        return new Promise<Command>((resolve: Function, reject: Function) => {
+        return new Promise<PIDOutput>((resolve: Function, reject: Function) => {
             this.commandQueue.push({ input: command, resolve: resolve, reject: reject });
         })
     }
@@ -100,7 +89,7 @@ class OBD2BluetoothInterface {
         this.writing = true;
         
         this.timeoutReference = setTimeout(() => {
-            console.log("[OBD2BluetoothInterface] Sending input: " + input);
+            //console.log("[OBD2BluetoothInterface] Sending input: " + input);
             this.lastCommand = input;
             this.timeoutReference = null;
 
@@ -132,6 +121,10 @@ class OBD2BluetoothInterface {
             return DataType.UnableToConnect;
         }
 
+        if(dataLower.search("no data") != -1) {
+            return DataType.NoData;
+        }
+
         if(data.localeCompare(this.lastCommand) == 0) {
             this.pidOutput.command = data;
             return DataType.Command;
@@ -159,7 +152,7 @@ class OBD2BluetoothInterface {
         if(type == DataType.Stopped) {
             this.onStopped();
         }
-        else if(type == DataType.Searching) {
+        else if(type == DataType.Searching || type == DataType.NoData) {
             this.onSearching();
         }
         else if(this.isPIDOutputComplete()) {
@@ -168,6 +161,7 @@ class OBD2BluetoothInterface {
     }
 
     private onSearchData(binaryData: Buffer): void {
+        //console.log("[OBD2BluetoothInterface] Search tick.");
         let type: DataType = this.parseData(binaryData);
 
         if(type == DataType.Stopped) {
@@ -181,6 +175,7 @@ class OBD2BluetoothInterface {
 
     private startSearch(): void {
         this.searching = true;
+        this.clearOutput();
         this.parser.removeAllListeners("data");
         this.parser.on("data", (data: Buffer) => { this.onSearchData(data); });
         
@@ -259,4 +254,4 @@ class OBD2BluetoothInterface {
     }
 }
 
-export { OBD2BluetoothInterface };
+export { OBD2SerialInterface, Command, PIDOutput, DataType };

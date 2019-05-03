@@ -1,19 +1,27 @@
+import { OBD2Base } from "./obd2-base";
 import { OBD2BluetoothWatcher } from "./obd2-bluetooth-watcher";
-import { OBD2 } from "./obd2";
+import { OBD2SerialInterface } from "./obd2-serial-interface";
+import { OBD2DataReader } from "./obd2-data-reader";
 
-class OBD2Bluetooth extends OBD2 {
+class OBD2Bluetooth extends OBD2Base {
+    protected obd2Interface: OBD2SerialInterface = null;
+    protected obd2Reader: OBD2DataReader  = null;
+
     private deviceName: string;
     private devicePath: string;
     private serialOptions: any;
 
     private bluetoothWatcher: OBD2BluetoothWatcher = null;
     private firstConnect: boolean = true;
+
+    private clearOnReconnect: boolean = false;
     
-    constructor(deviceName, devicePath, serialOptions) {
-        super(devicePath, serialOptions);
+    constructor(deviceName: string, devicePath: string, serialOptions: any, clearOnReconnect: boolean) {
+        super();
         this.deviceName = deviceName;
         this.devicePath = devicePath;
         this.serialOptions = serialOptions;
+        this.clearOnReconnect = clearOnReconnect;
     }
 
     /**
@@ -26,8 +34,15 @@ class OBD2Bluetooth extends OBD2 {
             this.bluetoothWatcher = new OBD2BluetoothWatcher(this.devicePath, this.serialOptions);
             
             // When we have a serial bluetooth connection
-            this.bluetoothWatcher.on("connect", (obd2interface ) => {
+            this.bluetoothWatcher.on("connect", (obd2interface) => {
                 console.log("[BluetoothOBD2] Bluetooth device \"" + this.deviceName);
+                this.obd2Interface = obd2interface;
+                this.obd2Reader.setInterface(obd2interface);
+
+                if(this.clearOnReconnect) {
+                    this.obd2Interface.clearQueue();
+                }
+
                 // We will initialise our OBD2Reader if it's not a reconnect
                 if(this.firstConnect) {
                     this.firstConnect = false;
@@ -38,16 +53,35 @@ class OBD2Bluetooth extends OBD2 {
                         resolve();
                     });
                 }
+
+                this.emit("connect");
             });
 
-            this.bluetoothWatcher.on("closed", () => {
+            this.bluetoothWatcher.on("disconnect", () => {
                 console.log("[BluetoothOBD2] Bluetooth device \"" + this.deviceName + "\" disconnected.");
+                this.emit("disconnect");
             });
 
             this.bluetoothWatcher.on("error", (error) => {
                 console.log("[BluetoothOBD2] Error: " + error);
             });
         });
+    }
+
+    public getCurrentData(PIDNumber: number, parseData: boolean = true, addUnit: boolean = true): Promise<any> {
+        return this.obd2Reader.getPIDData(PIDNumber, parseData, addUnit);
+    }
+
+    public getAllCurrentData(parseData: boolean = true, addUnit: boolean = true): Promise<Array<any>> {
+        return this.obd2Reader.getAllPIDData(parseData, addUnit);
+    }
+
+    public getSupportedPIDs(): Array<number> {
+        return this.obd2Reader.getSupportedPIDs();
+    }
+
+    public getPIDDescription(pidNumber: number): string {
+        return this.obd2Reader.getPIDDescription(pidNumber);
     }
 }
 

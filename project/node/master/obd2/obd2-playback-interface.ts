@@ -1,28 +1,24 @@
 import * as fs from "fs";
 import * as readline from "readline";
-import { OBD2InterfaceBase } from "./obd2-interface-base";
+import { OBD2Interface, Command, PIDOutput } from "./obd2-interface";
 
 interface TimestampedData {
-	data: string;
+	pidOutput: PIDOutput;
 	timestamp: number;
 }
 
-class OBD2PlaybackInterface extends OBD2InterfaceBase {
+class OBD2PlaybackInterface implements OBD2Interface {
 	private filename: string;
-	private startTime;
 	private dataMap: Map<string, TimestampedData[]> = new Map();
 
+	private startTime: number;
+
 	constructor(filename) {
-		super();
 		this.filename = filename;
 	}
 
 	public init(): Promise<void> {
 		return this.initData(this.filename);
-	}
-
-	public clear() {
-		this.dataMap = new Map();
 	}
 
 	public initData(filename: string): Promise<void> {
@@ -42,42 +38,43 @@ class OBD2PlaybackInterface extends OBD2InterfaceBase {
 			// Emite open and resolve promise
 			linereader.on("close", () => {
 				this.onFileClose();
-				this.emit("open");
 				resolve();
 			});
 		});
 	}
 
-	public sendCommand(data: string): Promise<string> {
+	public clear(): void {
+		this.dataMap = new Map();
+	}
+
+	public sendCommand(data: string): Promise<PIDOutput> {
 		// Return a promise, store the resolve functions for later when we receive the reply from this command
-		return new Promise<string>((resolve, reject) => {
+		return new Promise<PIDOutput>((resolve, reject) => {
 			resolve(this.lookup(data));
 		});
 	}
 
 	private onReadLine(line) {
 		// Lines have the format
-		// <timestamp>, <command>, <binary data in hex>
-		// 100323, 0100, deadbeef
+		// <timestamp>, { command, prefix, data }
+		// 100323, { command: "0100", prefix: "4100", data: "4A3C1F" }
 
 		// Split the string on comma and extract data
 		const splits: string[] = line.split(",");
 		let timestamp: number = 0;
-		let pidNumber: string = "";
-		let data: string = "";
+		let pidOutput: PIDOutput;
 
-		if(splits != null && splits.length >= 3) {
+		if(splits != null && splits.length == 2) {
 			timestamp = parseInt(splits[0], 10);
-			pidNumber = splits[1].trim();
-			data = splits[2].trim();
+			pidOutput = JSON.parse(splits[1]);
 		}
 
-		if(!this.dataMap.has(pidNumber)) {
-			this.dataMap.set(pidNumber, []);
+		if(!this.dataMap.has(pidOutput.command)) {
+			this.dataMap.set(pidOutput.command, []);
 		}
 
-		this.dataMap.get(pidNumber).push({
-			data,
+		this.dataMap.get(pidOutput.command).push({
+			pidOutput,
 			timestamp,
 		});
 	}
@@ -143,21 +140,16 @@ class OBD2PlaybackInterface extends OBD2InterfaceBase {
 		while(!value.done) {
 			for(var data of value.value) {
 				var timestamp = data.timestamp;
-				var binarydata: string = data.data;
+				var pidOutput: PIDOutput = data.pidOutput;
 
-				console.log("[" + timestamp + "] " + binarydata);
+				console.log("[" + timestamp + "] " + pidOutput);
 			}
 
 			value = iterator.next();
 		}
 	}
-
-	private onError(error) {
-		console.log("[OBD2Playback]: " + error);
-		this.emit("error", error);
-	}
 	
-	private lookup(data: string): string {
+	private lookup(data: string): PIDOutput {
 		let time = Date.now();
 		let delta = time - this.startTime;
 		console.log("Delta: " + delta);
@@ -170,7 +162,7 @@ class OBD2PlaybackInterface extends OBD2InterfaceBase {
 
 				console.log("Timestamp: " + (element.timestamp - delta));
 				if(element.timestamp - delta > 0) {
-					return element.data;
+					return element.pidOutput;
 				}
 			}
 		}

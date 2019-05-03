@@ -4,12 +4,11 @@ import { OBD2PID } from "./obd2-pid";
 
 class OBD2DataReader {
 	private obdMap: OBD2PIDMap;
-	private obdInterface: OBD2Interface;
+	private obdInterface: OBD2Interface = null;
 	private supportedPIDs: Array<number> = [0x00];
 
-	constructor(obd2interface: OBD2Interface) {
+	constructor() {
 		this.obdMap = new OBD2PIDMap();
-		this.obdInterface = obd2interface;
 	}
 
 	public setInterface(obdInterface: OBD2Interface) {
@@ -26,6 +25,8 @@ class OBD2DataReader {
 
 	private readSupportedPIDs(): Promise<void> {
 		return new Promise((resolve, reject) => {
+			this.supportedPIDs = [0x00];
+
 			this.getPIDData(0x00, false).then((dataArray: Array<number>) => {
 				console.log(dataArray);
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
@@ -113,6 +114,13 @@ class OBD2DataReader {
 			}
 		});
 	}
+
+	public getPIDDescription(pidNumber: number): string {
+        if(this.obdMap.has(pidNumber)) {
+            return this.obdMap.get(pidNumber).description;
+        }
+        return null;
+    }
 
 	private parsePIDData(pidNumber: number, data: string, addUnit: boolean) {
 		let splits: Array<string> = data.split("\r\n");

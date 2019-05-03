@@ -6,15 +6,17 @@ let watcher = new OBD2BluetoothWatcher("/dev/rfcomm0", {
 });
 
 watcher.on("connect", (obd2: OBD2BluetoothInterface) => {
-    obd2.sendCommand("0100").then((value) => {
+    let callback = (value) => {
         console.log(value);
-
+    
         setTimeout(() => {
-            obd2.sendCommand("0100").then((value) => {
-                console.log(value);
-            });
+            console.log("[TEST] Sending request.");
+            obd2.sendCommand("0100").then(callback);
         }, 5000);
-    });
+    }
+    
+    console.log("[TEST] Sending request.");
+    obd2.sendCommand("0100").then(callback);
 });
 
 watcher.connectToID("OBDII");

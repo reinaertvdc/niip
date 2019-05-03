@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { BluetoothCTL, BTInfo } from "../bluetooth/bluetoothctl";
-import { OBD2BluetoothInterface } from "./obd2-bluetooth-interface";
+import { OBD2SerialInterface } from "./obd2-serial-interface";
 import { RFCOMM } from "../bluetooth/rfcomm";
 
 class OBD2BluetoothWatcher extends EventEmitter {
@@ -11,32 +11,29 @@ class OBD2BluetoothWatcher extends EventEmitter {
     private maxTimeout: number = 2 * 1 * 1000;
     
     private bt: BluetoothCTL = null;
-    private interface: OBD2BluetoothInterface = null;
+    private interface: OBD2SerialInterface = null;
     private rfcomm: RFCOMM = null;
 
     constructor(deviceName, deviceOptions) {
         super();
         this.bt = new BluetoothCTL();
         this.rfcomm = new RFCOMM(deviceName, deviceOptions);
-        this.interface = new OBD2BluetoothInterface();
+        this.interface = new OBD2SerialInterface();
 
         this.attachListeners();
     }
 
     private attachListeners() {
         this.rfcomm.on("open", (serialPort) => {
-            this.interface.setInterface(serialPort);
-            this.emit("connect", this.interface);
+            this.onConnect(serialPort);
         });
 
         this.rfcomm.on("exit", () => {
-            console.log("[BluetoothWatcher] Connection failed, retrying...");
-            this.interface.pause();
-            this.connectToMAC(this.mac);
+            this.onDisconnect();
         });
 
         this.rfcomm.on("error", (error) => {
-            console.log("[BluetoothWatcher] RFCOMM error: " + error.toString().trim());
+            this.onError(error);
         })
     }
 
@@ -102,17 +99,29 @@ class OBD2BluetoothWatcher extends EventEmitter {
         });
     }
 
-    public onDisconnect(event) {
-        this.emit("disconnect", event);
+    private onConnect(serialPort) {
+        this.interface.setPort(serialPort);
+        this.emit("connect", this.interface);
+    }
+
+    private onDisconnect() {
+        //console.log("[BluetoothWatcher] Connection failed, retrying...");
+        this.interface.pause();
+        this.emit("disconnect");
 
         setTimeout(() => {
-            console.log("[BT] Lost connection to device, retrying...");
+            //console.log("[BT] Lost connection to device, retrying...");
             if(this.timeout < this.maxTimeout) {
                 this.timeout *= 2;
             }
 
             this.connectToMAC(this.mac);
         }, this.timeout);
+    }
+
+    private onError(error) {
+        this.emit("error", error);
+        console.log("[BluetoothWatcher] RFCOMM error: " + error.toString().trim());
     }
 }
 
