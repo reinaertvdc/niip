@@ -1,6 +1,7 @@
 import { OBD2PIDMap } from "./obd2-pidmaps";
 import { OBD2Interface } from "./obd2-interface"
 import { OBD2PID } from "./obd2-pid";
+import { PIDOutput } from "./obd2-serial-interface";
 
 class OBD2DataReader {
 	private obdMap: OBD2PIDMap;
@@ -96,9 +97,9 @@ class OBD2DataReader {
 					pidString = "0" + pidString;
 				}
 				this.obdInterface.sendCommand("01" + pidString)
-				.then((data: any) => {
+				.then((data: PIDOutput) => {
 					if(parseData) {
-						resolve(this.parsePIDData(pidNumber, data, addUnit));
+						resolve(this.parsePIDData(pidNumber, data.data, addUnit));
 					}
 					else {
 						resolve(data);
@@ -123,15 +124,7 @@ class OBD2DataReader {
     }
 
 	private parsePIDData(pidNumber: number, data: string, addUnit: boolean) {
-		let splits: Array<string> = data.split("\r\n");
-		let output: string;
-
-		for(var i = 0; i < splits.length; i++) {
-			if(splits[i].startsWith("41")) {
-				output = splits[i].replace(/ /g, "").substr(4);
-				break;
-			}
-		}
+		let output: string = data;
 
 		let byteArray: Uint8Array = Uint8Array.from(Buffer.from(output, "hex"));
 		if(this.obdMap.has(pidNumber)) {
