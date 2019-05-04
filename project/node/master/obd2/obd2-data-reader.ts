@@ -1,6 +1,5 @@
 import { OBD2PIDMap } from "./obd2-pidmaps";
 import { OBD2Interface } from "./obd2-interface"
-import { OBD2PID } from "./obd2-pid";
 import { PIDOutput } from "./obd2-serial-interface";
 
 class OBD2DataReader {
@@ -28,30 +27,30 @@ class OBD2DataReader {
 		return new Promise((resolve, reject) => {
 			this.supportedPIDs = [0x00];
 
-			this.getPIDData(0x00, false).then((dataArray: Array<number>) => {
+			this.getPIDData(0x00, true).then((dataArray: Array<number>) => {
 				console.log(dataArray);
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
-				return this.getPIDData(0x20, false);
+				return this.getPIDData(0x20, true);
 			})
 			.then((dataArray: Array<number>) => {
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
-				return this.getPIDData(0x40, false);
+				return this.getPIDData(0x40, true);
 			})
 			.then((dataArray: Array<number>) => {
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
-				return this.getPIDData(0x60, false);
+				return this.getPIDData(0x60, true);
 			})
 			.then((dataArray: Array<number>) => {
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
-				return this.getPIDData(0x80, false);
+				return this.getPIDData(0x80, true);
 			})
 			.then((dataArray: Array<number>) => {
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
-				return this.getPIDData(0xA0, false);
+				return this.getPIDData(0xA0, true);
 			})
 			.then((dataArray: Array<number>) => {
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
-				return this.getPIDData(0xC0, false);
+				return this.getPIDData(0xC0, true);
 			})
 			.then((dataArray: Array<number>) => {
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
@@ -63,19 +62,16 @@ class OBD2DataReader {
 		});
 	}
 
-	public getAllPIDData(parseData: boolean = true, addUnit: boolean = true): Promise<Array<any>> {
+	public getAllPIDData(parseData: boolean = true, addUnit: boolean = true): Promise<any[]> {
 		var promises = [];
 		
 		for(var i = 0; i < this.supportedPIDs.length; i++) {
 			var promise = new Promise((resolve, reject) => {
 				var pidNumber = this.supportedPIDs[i];
 				this.getPIDData(this.supportedPIDs[i], parseData, addUnit).then((data) => {
-					console.log("PID: " + pidNumber + " completed.");
-					var info = this.obdMap.get(pidNumber);
-
 					resolve({
 						pid: pidNumber,
-						description: info.description,
+						description: this.getPIDDescription(pidNumber),
 						value: data
 					});
 				}).catch((error) => {
@@ -89,7 +85,7 @@ class OBD2DataReader {
 		return Promise.all(promises);
 	}
 
-	public getPIDData(pidNumber: number, parseData = true, addUnit: boolean = true): any {
+	public getPIDData(pidNumber: number, parseData = true, addUnit: boolean = true): Promise<any> {
 		return new Promise((resolve, reject) => {
 			if(this.supportedPIDs.indexOf(pidNumber) > -1) {
 				let pidString: string = pidNumber.toString(16);

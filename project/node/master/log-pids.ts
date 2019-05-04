@@ -1,20 +1,23 @@
-import { OBD2DataReader } from "./obd2/obd2-data-reader";
 import { OBD2Logger } from "./obd2/obd2-logger";
-import { BluetoothOBD2 } from "./obd2/bluetooth-obd2";
+import { OBD2Bluetooth } from "./obd2/obd2-bluetooth";
+import { PIDOutput } from "./obd2/obd2-interface";
 
 
-let obd2 = new BluetoothOBD2("OBDII", "/dev/rfcomm0", {
+let obd2 = new OBD2Bluetooth("OBDII", "/dev/rfcomm0", {
 	"baudRate": 38400
-});
+}, true);
 
 let logger = new OBD2Logger("./piddata.txt");
 
 obd2.init().then(() => {
-    let requestLoop = () => {
+    let requestLoop = (data: any[]) => {
+        data.forEach((output) => {
+            console.log(output);
+            logger.logCommand(output.value);
+        });
 
+        obd2.getAllCurrentData(false, false).then(requestLoop);
     }
 
-    obd2.getAllCurrentData(false, false).then((data) =>  {
-        console.log(data);
-    });
+    obd2.getAllCurrentData(false, false).then(requestLoop);
 });

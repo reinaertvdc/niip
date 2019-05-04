@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { PIDOutput } from "./obd2-serial-interface";
 
 class OBD2Logger {
     filename = null;
@@ -7,13 +8,8 @@ class OBD2Logger {
         this.filename = filename;
     }
 
-    public logCommand(pidNumber: number, data: string) {
-        let pidString = pidNumber.toString(16);
-        if(pidNumber < 0x10) {
-            pidString = "0" + pidString;
-        }
-        pidString = "01" + pidString;
-        let tempString = "" + (Date.now()) + ", " + pidNumber +  ", " + data + "\n";
+    public logCommand(data: PIDOutput) {
+        let tempString = "" + (Date.now()) + ", " + JSON.stringify(data) + "\n";
         
         fs.appendFile(this.filename, tempString, (error) => {
             if(error) {

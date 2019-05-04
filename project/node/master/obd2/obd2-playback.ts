@@ -46,3 +46,5 @@ class OBD2Playback extends OBD2Base {
         return this.reader.getPIDDescription(pidNumber);
     }
 }
+
+export { OBD2Playback };

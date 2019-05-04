@@ -64,9 +64,10 @@ class OBD2PlaybackInterface implements OBD2Interface {
 		let timestamp: number = 0;
 		let pidOutput: PIDOutput;
 
-		if(splits != null && splits.length == 2) {
+		console.log(splits);
+		if(splits != null && splits.length == 4) {
 			timestamp = parseInt(splits[0], 10);
-			pidOutput = JSON.parse(splits[1]);
+			pidOutput = JSON.parse(splits[1] + "," + splits[2] + "," + splits[3]);
 		}
 
 		if(!this.dataMap.has(pidOutput.command)) {
@@ -152,7 +153,7 @@ class OBD2PlaybackInterface implements OBD2Interface {
 	private lookup(data: string): PIDOutput {
 		let time = Date.now();
 		let delta = time - this.startTime;
-		console.log("Delta: " + delta);
+		//console.log("Delta: " + delta);
 
 		if(this.dataMap.has(data)) {
 			let arr = this.dataMap.get(data);
@@ -160,7 +161,7 @@ class OBD2PlaybackInterface implements OBD2Interface {
 			for(let i = 0; i < arr.length; i++) {
 				var element = arr[i];
 
-				console.log("Timestamp: " + (element.timestamp - delta));
+				//console.log("Timestamp: " + (element.timestamp - delta));
 				if(element.timestamp - delta > 0) {
 					return element.pidOutput;
 				}

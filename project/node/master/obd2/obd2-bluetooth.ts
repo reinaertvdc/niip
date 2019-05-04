@@ -22,6 +22,7 @@ class OBD2Bluetooth extends OBD2Base {
         this.devicePath = devicePath;
         this.serialOptions = serialOptions;
         this.clearOnReconnect = clearOnReconnect;
+        this.obd2Reader = new OBD2DataReader();
     }
 
     /**
@@ -34,7 +35,7 @@ class OBD2Bluetooth extends OBD2Base {
             this.bluetoothWatcher = new OBD2BluetoothWatcher(this.devicePath, this.serialOptions);
             
             // When we have a serial bluetooth connection
-            this.bluetoothWatcher.on("connect", (obd2interface) => {
+            this.bluetoothWatcher.on("connect", (obd2interface: OBD2SerialInterface) => {
                 console.log("[BluetoothOBD2] Bluetooth device \"" + this.deviceName);
                 this.obd2Interface = obd2interface;
                 this.obd2Reader.setInterface(obd2interface);
@@ -65,6 +66,8 @@ class OBD2Bluetooth extends OBD2Base {
             this.bluetoothWatcher.on("error", (error) => {
                 console.log("[BluetoothOBD2] Error: " + error);
             });
+
+            this.bluetoothWatcher.connectToID(this.deviceName);
         });
     }
 
@@ -85,4 +88,4 @@ class OBD2Bluetooth extends OBD2Base {
     }
 }
 
-export { OBD2Bluetooth as BluetoothOBD2 };
+export { OBD2Bluetooth };
