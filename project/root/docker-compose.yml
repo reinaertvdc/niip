@@ -15,7 +15,7 @@ services:
       - '8080:8080/tcp'
     restart: 'always'
     volumes:
-      - './services/app/public:/home/node/app/public:ro'
+      - './services/app/ui/build:/home/node/app/ui/build:ro'
       - './services/app/src:/home/node/app/src:ro'
   db:
     build: 'services/db'
