@@ -1,0 +1,20 @@
+[bluetooth]# pair C0:EE:FB:F2:B7:E9
+Attempting to pair with C0:EE:FB:F2:B7:E9
+[CHG] Device C0:EE:FB:F2:B7:E9 Connected: yes
+Request confirmation
+[agent] Confirm passkey 304037 (yes/no): yes
+Pairing successful
+
+[bluetooth]# pair C0:EE:FB:F2:B7:E9
+Attempting to pair with C0:EE:FB:F2:B7:E9
+[CHG] Device C0:EE:FB:F2:B7:E9 Connected: yes
+Request confirmation
+[agent] Confirm passkey 372559 (yes/no): 
+no
+Failed to pair: org.bluez.Error.AuthenticationFailed
+
+(?:Attempting to pair with) ((?:[A-F0-9]{2})(?:\:[A-F0-9]{2})+)
+(?:Request confirmation)
+(?:\[agent\] Confirm passkey) ([0-9]+)
+(?:Pairing successful)
+(?:Failed to pair\: )(.+)

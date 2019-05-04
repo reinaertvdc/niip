@@ -1,0 +1,11 @@
+[bluetooth]# pair C3:3C:17:05:8D:23
+Attempting to pair with C3:3C:17:05:8D:23
+[CHG] Device C3:3C:17:05:8D:23 Connected: yes
+Request PIN code
+[agent] Enter PIN code: 1234
+[CHG] Device C3:3C:17:05:8D:23 UUIDs: 00001101-0000-1000-8000-00805f9b34fb
+[CHG] Device C3:3C:17:05:8D:23 ServicesResolved: yes
+[CHG] Device C3:3C:17:05:8D:23 Paired: yes
+Pairing successful
+[CHG] Device C3:3C:17:05:8D:23 ServicesResolved: no
+[CHG] Device C3:3C:17:05:8D:23 Connected: no
