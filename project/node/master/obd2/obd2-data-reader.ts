@@ -28,7 +28,6 @@ class OBD2DataReader {
 			this.supportedPIDs = [0x00];
 
 			this.getPIDData(0x00, true).then((dataArray: Array<number>) => {
-				console.log(dataArray);
 				this.supportedPIDs = this.supportedPIDs.concat(dataArray);
 				return this.getPIDData(0x20, true);
 			})
@@ -94,7 +93,7 @@ class OBD2DataReader {
 				}
 				this.obdInterface.sendCommand("01" + pidString)
 				.then((data: PIDOutput) => {
-					if(parseData) {
+					if(parseData && data != null) {
 						resolve(this.parsePIDData(pidNumber, data.data, addUnit));
 					}
 					else {

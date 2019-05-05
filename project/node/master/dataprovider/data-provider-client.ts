@@ -1,13 +1,14 @@
 import * as WebSocket from "ws";
 
-class ConnectivityManager {
+class DataProviderClient {
     // Hosts in string form
     private dataProviderIP: string;
     private endPoint: string;
 
     private buffer = null;
     private intervalUUID: string = null;
-    private authenticationKey: string = "GyTTuT27ZTtKdQ85kGQ346jZyDe2WTqWTj4/AajYlmM=";
+    private authenticationID: number = 89684413261313;
+    private authenticationKey: string = "X4CkHVsySCMZImzm5I/+Z0miXiq3YWidhl4gbkU4V+k=";
     private authenticated: boolean = false;
 
     private dataSocket;
@@ -167,6 +168,7 @@ class ConnectivityManager {
         this.sendOnEndPointConnection({
             "type": "authenticate",
             "data": {
+                "id": this.authenticationID,
                 "key": this.authenticationKey
             }
         });
@@ -458,4 +460,4 @@ class ConnectivityManager {
     }
 }
 
-export { ConnectivityManager };
+export { DataProviderClient };

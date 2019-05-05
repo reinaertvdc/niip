@@ -22,6 +22,7 @@ class OBD2Playback extends OBD2Base {
                 this.reader.setInterface(this.interface);
                 this.reader.init().then(() => {
                     resolve();
+                    this.emit("connect");
                 })
             })
             .catch((error) => {

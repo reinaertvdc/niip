@@ -4,7 +4,7 @@
   "description": "The main program running on our nodes.",
   "main": "index.ts",
   "scripts": {
-    "start": "npx ts-node index.ts",
+    "start": "npx ts-node index.ts -d OBDII",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -19,6 +19,7 @@
   "dependencies": {
     "@ionic-native/bluetooth-serial": "^5.5.0",
     "@ionic-native/core": "^5.5.1",
+    "commander": "^2.20.0",
     "rxjs": "^6.5.1",
     "serialport": "^7.1.4",
     "strip-ansi": "^5.2.0",

@@ -324,6 +324,15 @@ class DataProvider {
     public register(source: DataSource) {
         this.dataSources.set(source.key, source);
     }
+
+    /**
+     * This function removes a given data source from our internal list
+     * @param key: The key that was used to register the data source 
+     */
+    public remove(key: string) {
+        if(this.dataSources.has(key))
+            this.dataSources.delete(key);
+    }
 }
 
 export { DataProvider };

@@ -64,7 +64,7 @@ class OBD2PlaybackInterface implements OBD2Interface {
 		let timestamp: number = 0;
 		let pidOutput: PIDOutput;
 
-		console.log(splits);
+		//console.log(splits);
 		if(splits != null && splits.length == 4) {
 			timestamp = parseInt(splits[0], 10);
 			pidOutput = JSON.parse(splits[1] + "," + splits[2] + "," + splits[3]);
@@ -94,7 +94,7 @@ class OBD2PlaybackInterface implements OBD2Interface {
 		// in the future when data is requested
 		this.startTime = Date.now();
 
-		this.printDatamap();
+		//this.printDatamap();
 	}
 
 	private sortDataByTimestamps(): number {

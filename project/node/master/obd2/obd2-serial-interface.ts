@@ -165,7 +165,7 @@ class OBD2SerialInterface implements OBD2Interface {
         let type: DataType = this.parseData(binaryData);
 
         if(type == DataType.Stopped) {
-            this.onStopped();
+            //this.onStopped(); Stopped can also be fired during initialisation, our timeout is 2 seconds so stopped should never trigger when the device is ready
         }
         else if(this.isPIDOutputComplete()) {
             this.clearOutput();
