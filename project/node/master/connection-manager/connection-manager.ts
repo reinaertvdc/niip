@@ -8,7 +8,7 @@ let wifi: any = require('node-wifi');
 wifi.init({iface:null});
 
 
-enum APtype {
+export enum APtype {
     WIFI,
     HOTSPOT,
     LORA,
@@ -16,7 +16,7 @@ enum APtype {
 }
 
 
-class AP {
+export class AP {
 
     private _type: APtype = APtype.UNDEFINED;
     private _ssid: string|null = null;
@@ -60,7 +60,7 @@ class AP {
 }
 
 
-interface Network {
+export interface Network {
     ssid: string;
     bssid: string;
     mac:string;
@@ -79,6 +79,8 @@ export class ConnectionManager extends EventEmitter {
     private _interval: number = 15000;
     private _minQ: number = 40;
     private _aps: Array<AP> = [];
+    private _ap: AP|null = null;
+    private _net: Network|null = null;
 
     public constructor(wifiCheckInterval: number = 15000, minQuality: number = 40) {
         super();
@@ -122,7 +124,7 @@ export class ConnectionManager extends EventEmitter {
                 console.log('==================================================');
                 console.log(e);
                 console.log('==================================================');
-                this.emit('connect', null, null, false);
+                this.onConnect(null, null, false);
                 continue;
             }
 
@@ -237,7 +239,7 @@ export class ConnectionManager extends EventEmitter {
                 console.log('==================================================');
                 console.log(e);
                 console.log('==================================================');
-                this.emit('connect', null, null, false);
+                this.onConnect(null, null, false);
                 continue;
             }
 
@@ -253,11 +255,11 @@ export class ConnectionManager extends EventEmitter {
                     console.log('==================================================');
                     console.log(e);
                     console.log('==================================================');
-                    this.emit('connect', null, null, false);
+                    this.onConnect(null, null, false);
                     continue;
                 }
                 console.log('Connection Manager - Connected to ' + best.ap.ssid);
-                this.emit('connect', best.ap, best.net, true);
+                this.onConnect(best.ap, best.net, true);
                 continue;
             }
 
@@ -268,7 +270,7 @@ export class ConnectionManager extends EventEmitter {
             let conn: {ap: AP|null, net:Network} = {ap: null, net: conns[0]};
             if (conn.net.ssid === best.ap.ssid && (conn.net.bssid === best.net.bssid || conn.net.quality+5 >= best.net.quality)) {
                 console.log('Connection Manager - Connected to best network already');
-                this.emit('connect', best.ap, best.net, false);
+                this.onConnect(best.ap, best.net, false);
                 continue;
             }
             for (let i = 0; i < this._aps.length; i++) {
@@ -326,17 +328,33 @@ export class ConnectionManager extends EventEmitter {
                     continue;
                 }
                 console.log('Connection Manager - Connected to ' + best.ap.ssid);
-                this.emit('connect', best.ap, best.net, true);
+                this.onConnect(best.ap, best.net, true);
             }
             else {
                 console.log('Connection Manager - Not reconnecting');
-                this.emit('connect', conn.ap, conn.net, false);
+                this.onConnect(conn.ap, conn.net, false);
             }
         }
     }
 
+    private onConnect(ap: AP|null, net: Network|null, newConnection: boolean): void {
+        this._ap = ap;
+        this._net = net;
+        this.emit('connect', ap, net, newConnection);
+    }
+
+    public get lastConnectedAP(): AP {
+        return this._ap;
+    }
+
+    public get lastConnectedNetwork(): Network {
+        return this._net;
+    }
+
 }
 
+
+// EXAMPLE USAGE
 
 let cm: ConnectionManager = new ConnectionManager(5000);
 cm.on('connect', (ap:AP|null,net:Network|null,newConnection:boolean) => {
