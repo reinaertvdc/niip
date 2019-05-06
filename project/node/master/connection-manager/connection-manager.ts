@@ -82,7 +82,7 @@ export class ConnectionManager extends EventEmitter {
     private _ap: AP|null = null;
     private _net: Network|null = null;
 
-    public constructor(wifiCheckInterval: number = 15000, minQuality: number = 40) {
+    public constructor(wifiCheckInterval: number = 15000, minQuality: number = 25) {
         super();
         this._interval = wifiCheckInterval;
         this._minQ = minQuality;
@@ -127,9 +127,6 @@ export class ConnectionManager extends EventEmitter {
                 this.onConnect(null, null, false);
                 continue;
             }
-
-            //TODO: remove log
-            // console.log(scanResults);
 
             let bestWifi: {ap: AP|null, net: Network|null} = {ap: null, net: null}
             let bestHotspot: {ap: AP|null, net: Network|null} = {ap: null, net: null}
@@ -243,12 +240,10 @@ export class ConnectionManager extends EventEmitter {
                 continue;
             }
 
-            //TODO: remove log
-            // console.log(conns);
-
             if (conns.length === 0) {
                 console.log('Connection Manager - Connecting to ' + best.ap.ssid);
                 try {
+                    this.onConnect(null, null, false);
                     await wifi.connect({ssid:best.ap.ssid, password:best.ap.psk});
                 } catch (e) {
                     console.log('Connection Manager - Error while trying to connect to network');
@@ -319,6 +314,7 @@ export class ConnectionManager extends EventEmitter {
             if (isBetter) {
                 console.log('Connection Manager - Connecting to ' + best.ap.ssid);
                 try {
+                    this.onConnect(null, null, false);
                     await wifi.connect({ssid:best.ap.ssid, password:best.ap.psk});
                 } catch (e) {
                     console.log('Connection Manager - Error while trying to connect to network');
@@ -340,14 +336,15 @@ export class ConnectionManager extends EventEmitter {
     private onConnect(ap: AP|null, net: Network|null, newConnection: boolean): void {
         this._ap = ap;
         this._net = net;
+        //TODO: if AP type is hotspot, check connection with hotspot manager
         this.emit('connect', ap, net, newConnection);
     }
 
-    public get lastConnectedAP(): AP {
+    public get lastConnectedAP(): AP|null {
         return this._ap;
     }
 
-    public get lastConnectedNetwork(): Network {
+    public get lastConnectedNetwork(): Network|null {
         return this._net;
     }
 
@@ -356,19 +353,15 @@ export class ConnectionManager extends EventEmitter {
 
 // EXAMPLE USAGE
 
-let cm: ConnectionManager = new ConnectionManager(5000);
-cm.on('connect', (ap:AP|null,net:Network|null,newConnection:boolean) => {
-    if (ap !== null && net !== null) {
-        console.log('CONNECT TRIGGERED ' + ap.ssid);
-        if (newConnection) {
-            console.log('\treconnect')
-        }
-    }
-});
-
-const ap0 = new AP(APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120);
-const ap1 = new AP(APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50);
-const ap2 = new AP(APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 10, 5);
-cm.addAP(ap0);
-cm.addAP(ap1);
-cm.addAP(ap2);
+// let cm: ConnectionManager = new ConnectionManager(5000);
+// cm.on('connect', (ap:AP|null,net:Network|null,newConnection:boolean) => {
+//     if (ap !== null && net !== null) {
+//         console.log('CONNECT TRIGGERED ' + ap.ssid);
+//         if (newConnection) {
+//             console.log('\treconnect')
+//         }
+//     }
+// });
+// cm.addAP(new AP(APtype.WIFI, '<ssid_1>', '<wpa_psk_1>', 0, 120));
+// cm.addAP(new AP(APtype.WIFI, '<ssid_2>', '<wpa_psk_2>', 0, 50));
+// cm.addAP(new AP(APtype.HOTSPOT, '<ssid_3>', '<wpa_psk_3>', 10, 5));
