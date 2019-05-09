@@ -1,9 +1,8 @@
 #!/usr/bin/env ts-node
 
 import * as CM from './connection-manager';
-// import {ByteBuffer, ByteBufferPool} from './byte-buffer';
 import * as BSON from 'bson';
-import {Client, Pool} from 'pg';
+import {Client, Pool, ResultBuilder} from 'pg';
 
 const uuidv4 = require('uuid/v4');
 
@@ -73,7 +72,6 @@ export class Data {
 export class DataRouter {
 
     private _buffer: DataBuffer = new DataBuffer(PG_USER, PG_PASSWORD, PG_DATABASE, PG_HOST, PG_PORT);
-    // private _pool: ByteBufferPool = new ByteBufferPool();
     private _cm: CM.ConnectionManager;
 
     public constructor(cm: CM.ConnectionManager|null = null) {
@@ -99,10 +97,6 @@ export class DataRouter {
     public get connectionManager(): Readonly<CM.ConnectionManager> {
         return this._cm;
     }
-
-    // public get pool(): Readonly<ByteBufferPool> {
-    //     return this._pool;
-    // }
 
     public async send(data: Data): Promise<boolean> {
         let inserted: boolean = await this._buffer.push(data);
@@ -155,9 +149,15 @@ export class DataRouter {
                 continue;
             }
             console.log('Data Router - Sending');
-            // console.log(data.bson);
-            //TODO: actually send data
-            // this._buffer.poll();
+            for (let i: number = 0; i < data.length; i++) {
+                //TODO: actually send data
+                console.log(data[i].bson);
+                let id: number|null = data[i].id;
+                if (id !== null) {
+                    console.log('\t'+id);
+                    this._buffer.remove([id]);
+                }
+            }
         }
     }
 
@@ -167,12 +167,6 @@ export class DataRouter {
 class DataBuffer {
 
     private _pg: Pool;
-    // private _pgConnected: boolean = false;
-
-    // private _bufferWhenever: Array<Data> = [];
-    // private _bufferLowCost: Array<Data> = [];
-    // private _bufferHighCost: Array<Data> = [];
-    // private _bufferAsap: Array<Data> = [];
 
     public constructor(pgUser: string, pgPassword: string, pgDatabase: string, pgHost: string = 'localhost', pgPort: number = 5432) {
         this._pg = new Pool({
@@ -201,64 +195,46 @@ class DataBuffer {
         }
         console.log(insertedId);
         return true;
-        
-        // if (data.urgency === DataUrgency.WHENEVER) {
-        //     this._bufferWhenever.push(data);
-        // }
-        // else if (data.urgency === DataUrgency.LOWCOST) {
-        //     this._bufferWhenever.push(data);
-        // }
-        // else if (data.urgency === DataUrgency.HIGHCOST) {
-        //     this._bufferWhenever.push(data);
-        // }
-        // else if (data.urgency === DataUrgency.ASAP) {
-        //     this._bufferWhenever.push(data);
-        // }
     }
 
+    //TODO: return grouped data
     public async peek(minUrgency: DataUrgency = DataUrgency.WHENEVER, maxUrgency: DataUrgency = DataUrgency.ASAP, count: number = 100): Promise<Array<Data>> {
         const client = await this._pg.connect();
         let ret: Array<Data> = [];
         let curU: DataUrgency = maxUrgency;
         while (curU >= minUrgency && ret.length < count) {
             try {
-                //TODO: change count
-                let result = await client.query('select id, stream, date_part(\'epoch\',timestamp) as timestamp, data, urgency from buffer where urgency > $1 order by id fetch first $2 rows only;', [curU, count]);
-                console.log(result.rows);
+                let result = await client.query('select id, stream, date_part(\'epoch\',timestamp) as timestamp, data, urgency from buffer where urgency = $1 order by id fetch first $2 rows only;', [curU, count-ret.length]);
+                for (let i: number = 0; i < result.rows.length; i++) {
+                    let tmp: {id: number, stream: string, timestamp: number, data: Object, urgency: DataUrgency} = result.rows[i];
+                    let data: Data = new Data(tmp.stream, tmp.timestamp, tmp.data, tmp.urgency, tmp.id);
+                    ret.push(data);
+                }
             } catch (e) {
                 console.error(e);
             }
-            //TODO
+            curU--;
         }
-        client.release()
+        client.release();
         return ret;
     }
 
-    //TODO: implement delete
-
-    // public poll(minUrgency: DataUrgency = DataUrgency.WHENEVER): Data|null {
-    //     if (this._bufferAsap.length > 0) {
-    //         let tmp: Data|undefined = this._bufferAsap.shift();
-    //         if (tmp instanceof Data) return tmp;
-    //         else return null;
-    //     }
-    //     else if (minUrgency <= DataUrgency.HIGHCOST && this._bufferHighCost.length > 0) {
-    //         let tmp: Data|undefined = this._bufferHighCost.shift();
-    //         if (tmp instanceof Data) return tmp;
-    //         else return null;
-    //     }
-    //     else if (minUrgency <= DataUrgency.LOWCOST && this._bufferLowCost.length > 0) {
-    //         let tmp: Data|undefined = this._bufferLowCost.shift();
-    //         if (tmp instanceof Data) return tmp;
-    //         else return null;
-    //     }
-    //     else if (minUrgency <= DataUrgency.WHENEVER && this._bufferWhenever.length > 0) {
-    //         let tmp: Data|undefined = this._bufferWhenever.shift();
-    //         if (tmp instanceof Data) return tmp;
-    //         else return null;
-    //     }
-    //     return null;
-    // }
+    public async remove(ids: Array<number>): Promise<void> {
+        if (ids.length === 0) { return; }
+        let qs: string = 'DELETE FROM buffer WHERE id IN (';
+        qs += ids[0];
+        for (let i: number = 1; i < ids.length; i++) {
+            qs += ',' + ids[i];
+        }
+        qs += ');'
+        const client = await this._pg.connect();
+        try {
+            await client.query(qs);
+        } catch (e) {
+            console.error(e);
+        }
+        client.release();
+    }
 
 }
 
@@ -267,7 +243,7 @@ let dr = new DataRouter(cm);
 
 dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
 dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
-dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 10, 5));
+dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'XT1635-02 4458', 'shagra2018', 10, 5));
 
 setTimeout(()=>{
     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
