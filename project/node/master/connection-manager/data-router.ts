@@ -74,6 +74,11 @@ export class DataRouter {
     private _buffer: DataBuffer = new DataBuffer(PG_USER, PG_PASSWORD, PG_DATABASE, PG_HOST, PG_PORT);
     private _cm: CM.ConnectionManager;
 
+    //TODO: mqtt connection
+
+    //TODO: keep track whenever connection changed to reconnect to mqtt broker
+    private _connectionChanged: boolean = false;
+
     public constructor(cm: CM.ConnectionManager|null = null) {
         if (cm !== null) {
             this._cm = cm;
