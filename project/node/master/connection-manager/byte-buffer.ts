@@ -3,11 +3,13 @@ export class ByteBuffer {
     private _baseSize: number;
     private _size: number;
     private _bytes: Buffer;
+    //TODO: add pool as member field
 
     constructor(size = 1024) {
         this._baseSize = size;
         this._size = 0;
         this._bytes = Buffer.allocUnsafe(this._baseSize);
+        //TODO: set pool
     }
 
     get length() {
@@ -53,6 +55,8 @@ export class ByteBuffer {
             this._bytes = Buffer.allocUnsafe(this._baseSize);
         }
     }
+
+    //TODO: return to pool function
 
 }
 

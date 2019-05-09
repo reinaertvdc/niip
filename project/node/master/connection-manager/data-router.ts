@@ -1,7 +1,18 @@
 #!/usr/bin/env ts-node
 
 import * as CM from './connection-manager';
-import {ByteBuffer, ByteBufferPool} from './byte-buffer';
+// import {ByteBuffer, ByteBufferPool} from './byte-buffer';
+import * as BSON from 'bson';
+import {Client, Pool} from 'pg';
+
+const uuidv4 = require('uuid/v4');
+
+
+const PG_HOST = '127.0.0.1';
+const PG_PORT = 5432;
+const PG_USER = 'logitrack';
+const PG_PASSWORD = 'logitrack';
+const PG_DATABASE = 'logitrack';
 
 
 export enum DataUrgency {
@@ -14,17 +25,46 @@ export enum DataUrgency {
 
 export class Data {
 
-    private _data: ByteBuffer;
+    private _id: number|null;
+    private _uuid: string;
+    private _timestamp: number;
+    private _data: {};
     private _urgency: DataUrgency = DataUrgency.WHENEVER;
-    // private _size: number;
 
-    public constructor(data: ByteBuffer, urgency: DataUrgency = DataUrgency.WHENEVER) {
+    public constructor(streamUuid: string, timestamp: number,data: {}, urgency: DataUrgency = DataUrgency.WHENEVER, id: number|null = null) {
+        this._id = id;
+        this._uuid = streamUuid;
+        this._timestamp = timestamp;
         this._data = data;
         this._urgency = urgency;
     }
 
+    public get id(): number|null {
+        return this._id;
+    }
+
+    public get streamUuid(): string {
+        return this._uuid;
+    }
+
+    public get timestamp(): number {
+        return this._timestamp;
+    }
+
     public get urgency(): DataUrgency {
         return this._urgency;
+    }
+
+    public get data(): {} {
+        return this._data;
+    }
+
+    public get json(): string {
+        return JSON.stringify(this._data);
+    }
+
+    public get bson(): Buffer {
+        return BSON.serialize(this._data);
     }
     
 }
@@ -32,8 +72,8 @@ export class Data {
 
 export class DataRouter {
 
-    private _buffer: DataBuffer = new DataBuffer();
-    private _pool: ByteBufferPool = new ByteBufferPool();
+    private _buffer: DataBuffer = new DataBuffer(PG_USER, PG_PASSWORD, PG_DATABASE, PG_HOST, PG_PORT);
+    // private _pool: ByteBufferPool = new ByteBufferPool();
     private _cm: CM.ConnectionManager;
 
     public constructor(cm: CM.ConnectionManager|null = null) {
@@ -60,12 +100,13 @@ export class DataRouter {
         return this._cm;
     }
 
-    public get pool(): Readonly<ByteBufferPool> {
-        return this._pool;
-    }
+    // public get pool(): Readonly<ByteBufferPool> {
+    //     return this._pool;
+    // }
 
-    public send(data: Data) {
-        this._buffer.push(data);
+    public async send(data: Data): Promise<boolean> {
+        let inserted: boolean = await this._buffer.push(data);
+        return inserted;
     }
 
     private async sleep(millis: number): Promise<void> {
@@ -106,16 +147,17 @@ export class DataRouter {
             else if (this._cm.lastConnectedAP.type === CM.APtype.LORA) {
                 minU = DataUrgency.ASAP;
             }
-            let data: Data|null = this._buffer.peek(minU);
-            if (data === null) {
+            let data: Array<Data> = await this._buffer.peek(minU);
+            if (data.length === 0) {
                 console.log('Data Router - No data to send on current connection - pausing')
                 await this.sleep(1000);
                 console.log('Data Router - No data to send on current connection - resuming')
                 continue;
             }
             console.log('Data Router - Sending');
+            // console.log(data.bson);
             //TODO: actually send data
-            this._buffer.poll();
+            // this._buffer.poll();
         }
     }
 
@@ -124,71 +166,99 @@ export class DataRouter {
 
 class DataBuffer {
 
-    //TODO: implement "buffer to disk" functionality
+    private _pg: Pool;
+    // private _pgConnected: boolean = false;
 
-    private _bufferWhenever: Array<Data> = [];
-    private _bufferLowCost: Array<Data> = [];
-    private _bufferHighCost: Array<Data> = [];
-    private _bufferAsap: Array<Data> = [];
+    // private _bufferWhenever: Array<Data> = [];
+    // private _bufferLowCost: Array<Data> = [];
+    // private _bufferHighCost: Array<Data> = [];
+    // private _bufferAsap: Array<Data> = [];
 
-    public constructor() {
-
+    public constructor(pgUser: string, pgPassword: string, pgDatabase: string, pgHost: string = 'localhost', pgPort: number = 5432) {
+        this._pg = new Pool({
+            host: pgHost,
+            port: pgPort,
+            user: pgUser,
+            password: pgPassword,
+            database: pgDatabase,
+        });
     }
 
-    public push(data: Data): void {
-        if (data.urgency === DataUrgency.WHENEVER) {
-            this._bufferWhenever.push(data);
+    public async push(data: Data): Promise<boolean> {
+        const client = await this._pg.connect();
+        let insertedId: number = -1;
+        try {
+            let result = await client.query('INSERT INTO buffer (stream,timestamp,data,urgency) VALUES ($1, to_timestamp($2), $3, $4) RETURNING id', [data.streamUuid, data.timestamp, data.json, data.urgency]);
+            if (result.rows.length > 0) {
+                insertedId = result.rows[0].id;
+            }
+        } catch (e) {
+            console.error(e);
         }
-        else if (data.urgency === DataUrgency.LOWCOST) {
-            this._bufferWhenever.push(data);
+        client.release()
+        if (insertedId < 0) {
+            return false;
         }
-        else if (data.urgency === DataUrgency.HIGHCOST) {
-            this._bufferWhenever.push(data);
-        }
-        else if (data.urgency === DataUrgency.ASAP) {
-            this._bufferWhenever.push(data);
-        }
+        console.log(insertedId);
+        return true;
+        
+        // if (data.urgency === DataUrgency.WHENEVER) {
+        //     this._bufferWhenever.push(data);
+        // }
+        // else if (data.urgency === DataUrgency.LOWCOST) {
+        //     this._bufferWhenever.push(data);
+        // }
+        // else if (data.urgency === DataUrgency.HIGHCOST) {
+        //     this._bufferWhenever.push(data);
+        // }
+        // else if (data.urgency === DataUrgency.ASAP) {
+        //     this._bufferWhenever.push(data);
+        // }
     }
 
-    public peek(minUrgency: DataUrgency = DataUrgency.WHENEVER): Data|null {
-        if (this._bufferAsap.length > 0) {
-            return this._bufferAsap[0];
+    public async peek(minUrgency: DataUrgency = DataUrgency.WHENEVER, maxUrgency: DataUrgency = DataUrgency.ASAP, count: number = 100): Promise<Array<Data>> {
+        const client = await this._pg.connect();
+        let ret: Array<Data> = [];
+        let curU: DataUrgency = maxUrgency;
+        while (curU >= minUrgency && ret.length < count) {
+            try {
+                //TODO: change count
+                let result = await client.query('select id, stream, date_part(\'epoch\',timestamp) as timestamp, data, urgency from buffer where urgency > $1 order by id fetch first $2 rows only;', [curU, count]);
+                console.log(result.rows);
+            } catch (e) {
+                console.error(e);
+            }
+            //TODO
         }
-        else if (minUrgency <= DataUrgency.HIGHCOST && this._bufferHighCost.length > 0) {
-            return this._bufferHighCost[0];
-        }
-        else if (minUrgency <= DataUrgency.LOWCOST && this._bufferLowCost.length > 0) {
-            return this._bufferLowCost[0];
-        }
-        else if (minUrgency <= DataUrgency.WHENEVER && this._bufferWhenever.length > 0) {
-            return this._bufferWhenever[0];
-        }
-        return null;
+        client.release()
+        return ret;
     }
 
-    public poll(minUrgency: DataUrgency = DataUrgency.WHENEVER): Data|null {
-        if (this._bufferAsap.length > 0) {
-            let tmp: Data|undefined = this._bufferAsap.shift();
-            if (tmp instanceof Data) return tmp;
-            else return null;
-        }
-        else if (minUrgency <= DataUrgency.HIGHCOST && this._bufferHighCost.length > 0) {
-            let tmp: Data|undefined = this._bufferHighCost.shift();
-            if (tmp instanceof Data) return tmp;
-            else return null;
-        }
-        else if (minUrgency <= DataUrgency.LOWCOST && this._bufferLowCost.length > 0) {
-            let tmp: Data|undefined = this._bufferLowCost.shift();
-            if (tmp instanceof Data) return tmp;
-            else return null;
-        }
-        else if (minUrgency <= DataUrgency.WHENEVER && this._bufferWhenever.length > 0) {
-            let tmp: Data|undefined = this._bufferWhenever.shift();
-            if (tmp instanceof Data) return tmp;
-            else return null;
-        }
-        return null;
-    }
+    //TODO: implement delete
+
+    // public poll(minUrgency: DataUrgency = DataUrgency.WHENEVER): Data|null {
+    //     if (this._bufferAsap.length > 0) {
+    //         let tmp: Data|undefined = this._bufferAsap.shift();
+    //         if (tmp instanceof Data) return tmp;
+    //         else return null;
+    //     }
+    //     else if (minUrgency <= DataUrgency.HIGHCOST && this._bufferHighCost.length > 0) {
+    //         let tmp: Data|undefined = this._bufferHighCost.shift();
+    //         if (tmp instanceof Data) return tmp;
+    //         else return null;
+    //     }
+    //     else if (minUrgency <= DataUrgency.LOWCOST && this._bufferLowCost.length > 0) {
+    //         let tmp: Data|undefined = this._bufferLowCost.shift();
+    //         if (tmp instanceof Data) return tmp;
+    //         else return null;
+    //     }
+    //     else if (minUrgency <= DataUrgency.WHENEVER && this._bufferWhenever.length > 0) {
+    //         let tmp: Data|undefined = this._bufferWhenever.shift();
+    //         if (tmp instanceof Data) return tmp;
+    //         else return null;
+    //     }
+    //     return null;
+    // }
 
 }
 
@@ -200,12 +270,12 @@ dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'telenet-A837A-extended', '
 dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 10, 5));
 
 setTimeout(()=>{
-    dr.send(new Data(dr.pool.getBuffer()));
-    dr.send(new Data(dr.pool.getBuffer()));
-    dr.send(new Data(dr.pool.getBuffer()));
-    dr.send(new Data(dr.pool.getBuffer()));
-    dr.send(new Data(dr.pool.getBuffer()));
-    dr.send(new Data(dr.pool.getBuffer()));
-    dr.send(new Data(dr.pool.getBuffer()));
-    dr.send(new Data(dr.pool.getBuffer()));
-}, 10000);
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+}, 5000);
