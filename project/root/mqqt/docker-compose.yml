@@ -1,0 +1,9 @@
+version: '3'
+services:
+  vernemq:
+    image: erlio/docker-vernemq:latest-alpine
+    ports:
+      - 1883:1883
+      - 1880:8080
+    environment:
+      DOCKER_VERNEMQ_USER_test: test

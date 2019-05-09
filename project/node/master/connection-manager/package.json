@@ -2,6 +2,7 @@
   "name": "connection-manager",
   "private": true,
   "dependencies": {
+    "@types/mqtt": "^2.5.0",
     "@types/pg": "^7.4.14",
     "@types/uuid": "^3.4.4",
     "bson": "^4.0.2",
