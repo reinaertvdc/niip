@@ -1,5 +1,6 @@
 import { OBD2Bluetooth } from "./obd2/obd2-bluetooth";
-import { DataProvider } from "./dataprovider/data-provider";
+import { APIServer } from "./api-server/api-server";
+import { DataProvider } from "./data-provider/data-provider";
 import { OBD2Logger } from "./obd2/obd2-logger";
 import { OBD2Base } from "./obd2/obd2-base";
 import { OBD2Playback } from "./obd2/obd2-playback";
@@ -38,6 +39,7 @@ let logger: OBD2Logger = null;
 let obd2: OBD2Base = null;
 let provider: DataProvider = DataProvider.getInstance();
 let supportedPIDs: number[] = [];
+let server: APIServer = new APIServer(8945);
 
 if(program.output) {
 	console.log("[MAIN] Logger attached, output file: %j", program.output);

@@ -1,4 +1,4 @@
-import { DataProviderClient } from "../dataprovider/data-provider-client";
+import { DataProviderClient } from "../data-provider/data-provider-client";
 const WebSocket = require("ws");
 
 //var conMan: DataProviderClient = new DataProviderClient("ws://localhost:8945", "wss://logitrack.tk");

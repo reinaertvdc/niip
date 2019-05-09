@@ -1,28 +1,19 @@
-import * as WebSocket from "ws";
-import * as uuid from "uuid/v4";
+const ws = require("ws");
+const uuid = require("uuid/v4");
 
-interface DataSource {
-    key: string,
-    description: string,
-    source: Function,
-    thisObject: Object,
-    arguments: Array<any>
-}
+import { DataProvider, DataDescription } from "../data-provider/data-provider";
 
-
-class DataProvider {
-    private static instance: DataProvider = null;
-
-    private dataSources: Map<string, DataSource> = new Map();
-    
+class APIServer {
     private eventMap: Map<string, Function> = new Map();
     private streamMap: Map<string, any> = new Map();
 
     private wsServer;
+    private dataProvider: DataProvider;
 
-    private constructor() {
+    public constructor(port: number) {
+        this.dataProvider = DataProvider.getInstance();
         this.initEventMap();
-        this.createServer();
+        this.createServer(port);
     }
 
     /**
@@ -34,8 +25,6 @@ class DataProvider {
         this.onStopDataStream = this.onStopDataStream.bind(this);
         this.onListData = this.onListData.bind(this);
         this.onGetData = this.onGetData.bind(this);
-        this.getData = this.getData.bind(this);
-        this.getMultipleData = this.getMultipleData.bind(this);
 
         this.eventMap.set("start-data-stream", this.onStartDataStream);
         this.eventMap.set("stop-data-stream", this.onStopDataStream);
@@ -46,9 +35,9 @@ class DataProvider {
     /**
      * Function that creates our websocket server.
      */
-    private createServer() {
-        this.wsServer = new WebSocket.Server({
-            port: 8945
+    private createServer(port: number) {
+        this.wsServer = new ws.Server({
+            port
         });
 
         this.wsServer.on("connection", (connection) => {
@@ -56,7 +45,7 @@ class DataProvider {
         });
     }
 
-    /**
+        /**
      * This function is a callback for when there is a new websocket connection
      * @param connection The newly made connection
      */
@@ -113,7 +102,7 @@ class DataProvider {
             };
 
             // Attempt to gather all the data requested in sources and send it
-            this.getMultipleData(sources).then((output) => {
+            this.dataProvider.getMultipleData(sources).then((output) => {
                 reply.data = output;
                 connection.send(JSON.stringify(reply));
             })
@@ -142,7 +131,7 @@ class DataProvider {
             var streamUUID = uuid();
             // Start an interval that gathers and sends the requested data
             var interval = setInterval(() => {
-                this.getMultipleData(payload.sources).then((data) => {
+                this.dataProvider.getMultipleData(payload.sources).then((data) => {
                     var reply = {
                         "type": "data-stream-tick",
                         "data": data
@@ -213,18 +202,7 @@ class DataProvider {
      * @param payload The payload of the event
      */
     private onListData(connection, payload) {
-        // We loop over our Map using an iterator and store the sources in an array.
-        var sourcesIt = this.dataSources.values();
-        var sources = [];
-
-        let result = sourcesIt.next();
-        while(!result.done) {
-            sources.push({
-                "key": result.value.key,
-                "description": result.value.description
-            });
-            result = sourcesIt.next();
-        }
+        let sources: DataDescription[] = this.dataProvider.getSources();
 
         connection.send(JSON.stringify({
             "type": "list-data",
@@ -245,94 +223,6 @@ class DataProvider {
             "data": error
         }));
     }
-
-    public static getInstance(): DataProvider {
-        if(DataProvider.instance == null) {
-            DataProvider.instance = new DataProvider();
-        }
-        return DataProvider.instance;
-    }
-
-    public has(key: string) {
-        return this.dataSources.has(key);
-    }
-
-    public getSource(key: string) {
-        return this.dataSources.get(key);
-    }
-
-    /**
-     * Function that will try to get the data that was request
-     * @param key The data source
-     */
-    public getData(key: string): Promise<any> {
-        var source = this.dataSources.get(key);
-        var callback = source.source;
-        var args = source.arguments;
-
-        return callback.apply(source.thisObject, args);
-    }
-
-    /**
-     * Function that will try to get all the data that was requested
-     * @param keys The data sources that we will gather
-     */
-    public getMultipleData(keys: Array<string>) {
-        return new Promise((resolve, reject) => {
-            let response = {};
-            let found = [];
-            
-            // First, check which sources we have and which we don't have
-            for(var i = 0; i < keys.length; i++) {
-                if(this.has(keys[i])) {
-                    // Add the ones we have to a list
-                    found.push(keys[i]);
-                }
-                else {
-                    // For the ones we don't have we just put null in the output
-                    response[keys[i]] = null;
-                }
-            }
-            
-            // Generate a set from this list 
-            // This list indicates which data we still need to gather
-            let keySet: Set<string> = new Set(found);
-
-            // For each data source that we do have try to fetch it.
-            found.forEach((value, index) => {
-                // getData return a promise
-                this.getData(value).then((output) => {
-                    // Add the data to the response
-                    response[value] = output;
-                    // Delete this data source from the keyset
-                    keySet.delete(value);
-
-                    // If the keyset is empty we have gathered all the data ==> resolve our promise
-                    if(keySet.size == 0) {
-                        resolve(response);
-                    }
-                });
-            });
-        });
-    }
-
-    /**
-     * This function adds a given data source to our internal list
-     * This data source will then be able to be queried by websockets
-     * @param source The data source that will be registered
-     */
-    public register(source: DataSource) {
-        this.dataSources.set(source.key, source);
-    }
-
-    /**
-     * This function removes a given data source from our internal list
-     * @param key: The key that was used to register the data source 
-     */
-    public remove(key: string) {
-        if(this.dataSources.has(key))
-            this.dataSources.delete(key);
-    }
 }
 
-export { DataProvider };
+export { APIServer };
