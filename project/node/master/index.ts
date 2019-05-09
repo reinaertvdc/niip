@@ -87,7 +87,7 @@ if(logger == null) {
 		for(let i: number = 0; i < supportedPIDs.length; i++) {
 			provider.register({
 				"key": "pid-" + supportedPIDs[i],
-				"source": obd2.getCurrentData,
+				"source": obd2.getBufferedData,
 				"thisObject": obd2,
 				"arguments": [supportedPIDs[i]],
 				"description": obd2.getPIDDescription(supportedPIDs[i])

@@ -2,13 +2,28 @@ import { OBD2PIDMap } from "./obd2-pidmaps";
 import { OBD2Interface } from "./obd2-interface"
 import { PIDOutput } from "./obd2-serial-interface";
 
+type PIDValueWrapper = {
+	pid: number;
+	description: string;
+	value: any;
+}
+
 class OBD2DataReader {
 	private obdMap: OBD2PIDMap;
 	private obdInterface: OBD2Interface = null;
 	private supportedPIDs: Array<number> = [0x00];
+	
+	// Buffering
+	private bufferedData: Map<number, string>;
+	private shouldBuffer: boolean;
+	private minInterval: number;
+	private bufferStart: number;
 
-	constructor() {
+	constructor(buffer: boolean = true, minInterval: number = 1000) {
 		this.obdMap = new OBD2PIDMap();
+		this.bufferedData = new Map<number, string>();
+		this.shouldBuffer = buffer;
+		this.minInterval = minInterval;
 	}
 
 	public setInterface(obdInterface: OBD2Interface) {
@@ -16,7 +31,13 @@ class OBD2DataReader {
 	}
 
 	public init(): Promise<void> {
-		return this.readSupportedPIDs();
+		return new Promise<void>(async (resolve, reject) => {
+			await this.readSupportedPIDs();
+			if(this.shouldBuffer)
+				await this.startRequestingData();
+
+			resolve();
+		});
 	}
 
 	public getSupportedPIDs(): Array<number> {
@@ -61,7 +82,46 @@ class OBD2DataReader {
 		});
 	}
 
-	public getAllPIDData(parseData: boolean = true, addUnit: boolean = true): Promise<any[]> {
+	public getAllBufferedData(parseData: boolean = true, addUnit: boolean = true): Promise<PIDValueWrapper[]> {
+		let promises = [];
+
+		for(let i = 0; i < this.supportedPIDs.length; i++) {
+			let promise = new Promise((resolve, reject) => {
+				let pidNumber = this.supportedPIDs[i];
+				this.getBufferedData(pidNumber, parseData, addUnit).then((data) => {
+					resolve({
+						pid: pidNumber,
+						description: this.getPIDDescription(pidNumber),
+						value: data
+					});
+				}).catch((error) => {
+					reject(error);
+				});
+			});
+
+			promises.push(promise);
+		}
+
+		return Promise.all(promises);
+	}
+
+	public getBufferedData(pidNumber: number, parseData: boolean = true, addUnit: boolean = true): Promise<any> {
+		return new Promise((resolve, reject) => {
+			if(!this.bufferedData.has(pidNumber)) {
+				resolve(null);
+			}
+			
+			let pidData: string = this.bufferedData.get(pidNumber);
+			if(parseData) {
+				resolve(this.parsePIDData(pidNumber, pidData, addUnit));
+			}
+			else {
+				resolve(pidData);
+			}
+		});
+	}
+
+	public getAllPIDData(parseData: boolean = true, addUnit: boolean = true): Promise<PIDValueWrapper[]> {
 		var promises = [];
 		
 		for(var i = 0; i < this.supportedPIDs.length; i++) {
@@ -127,6 +187,37 @@ class OBD2DataReader {
 		}
 		return byteArray;
 	}
+
+	private startRequestingData(): Promise<void> {
+		console.log("Start Request")
+		return new Promise<void>((resolve, reject) => {
+			let callback = (data: any[]) => {
+				this.updateBuffer(data);
+
+				let delta = Date.now() - this.bufferStart;
+
+				if(this.shouldBuffer) {
+					setTimeout(() => {
+						this.bufferStart = Date.now();
+						this.getAllPIDData(false, false).then(callback);
+					}, Math.max(1000 - delta, 0));
+				}
+			}
+			
+			this.bufferStart = Date.now();
+			this.getAllPIDData(false, false).then((data: any[]) => {
+				callback(data);
+				resolve();
+			});
+		});
+	}
+
+	private updateBuffer(data: PIDValueWrapper[]): void {
+		console.log("[OBD2DataReader] Buffered data updated.");
+		for(let i = 0; i < data.length; i++) {
+			this.bufferedData.set(data[i].pid, data[i].value.data);
+		}
+	}
 }
 
-export { OBD2DataReader }
+export { OBD2DataReader, PIDValueWrapper}

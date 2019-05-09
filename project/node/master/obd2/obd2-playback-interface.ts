@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as readline from "readline";
-import { OBD2Interface, Command, PIDOutput } from "./obd2-interface";
+import { OBD2Interface, PIDOutput } from "./obd2-interface";
 
 interface TimestampedData {
 	pidOutput: PIDOutput;

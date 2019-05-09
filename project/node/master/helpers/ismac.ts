@@ -7,3 +7,5 @@ function isMAC(input: string): boolean {
 
     return false;
 }
+
+export { isMAC };

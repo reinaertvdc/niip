@@ -66,25 +66,9 @@ class OBD2Bluetooth extends OBD2Base {
             this.bluetoothWatcher.on("error", (error) => {
                 console.log("[BluetoothOBD2] Error: " + error);
             });
-
+            
             this.bluetoothWatcher.connectToID(this.device);
         });
-    }
-
-    public getCurrentData(PIDNumber: number, parseData: boolean = true, addUnit: boolean = true): Promise<any> {
-        return this.obd2Reader.getPIDData(PIDNumber, parseData, addUnit);
-    }
-
-    public getAllCurrentData(parseData: boolean = true, addUnit: boolean = true): Promise<Array<any>> {
-        return this.obd2Reader.getAllPIDData(parseData, addUnit);
-    }
-
-    public getSupportedPIDs(): Array<number> {
-        return this.obd2Reader.getSupportedPIDs();
-    }
-
-    public getPIDDescription(pidNumber: number): string {
-        return this.obd2Reader.getPIDDescription(pidNumber);
     }
 }
 

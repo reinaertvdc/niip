@@ -1,6 +1,6 @@
-import { OBD2BluetoothWatcher } from "./obd2/obd2-bluetooth-watcher";
-import { OBD2SerialInterface } from "./obd2/obd2-serial-interface";
-import { OBD2DataReader } from "./obd2/obd2-data-reader";
+import { OBD2BluetoothWatcher } from "../obd2/obd2-bluetooth-watcher";
+import { OBD2SerialInterface } from "../obd2/obd2-serial-interface";
+import { OBD2DataReader } from "../obd2/obd2-data-reader";
 
 let watcher = new OBD2BluetoothWatcher("/dev/rfcomm0", {
     baudRate: 38400
