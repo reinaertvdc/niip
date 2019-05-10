@@ -1,12 +1,14 @@
 #!/usr/bin/env ts-node
 
+import {exec} from 'child_process';
 import {EventEmitter} from 'events';
 
 let wifi: any = require('node-wifi');
 
 
-wifi.init({iface:null});
-
+//TODO: change to correct iface name
+const IFACE_NAME: string = 'wlp3s0';
+wifi.init({iface:IFACE_NAME});
 
 export enum APtype {
     WIFI,
@@ -76,15 +78,20 @@ export interface Network {
 
 export class ConnectionManager extends EventEmitter {
 
-    private _interval: number = 15000;
+    private _interval: number;
+    private _scanWait: number;
+    private _scanIterations: number;
+    private _sendLoopIterations: number = 0;
     private _minQ: number = 40;
     private _aps: Array<AP> = [];
     private _ap: AP|null = null;
     private _net: Network|null = null;
 
-    public constructor(wifiCheckInterval: number = 15000, minQuality: number = 25) {
+    public constructor(wifiCheckInterval: number = 10000, scanWaitTime: number = 10000, scanIterations: number = 6, minQuality: number = 25) {
         super();
         this._interval = wifiCheckInterval;
+        this._scanWait = scanWaitTime;
+        this._scanIterations = scanIterations;
         this._minQ = minQuality;
         this.connectLoop();
     }
@@ -106,6 +113,10 @@ export class ConnectionManager extends EventEmitter {
         });
     }
 
+    private async forceRescan(): Promise<void> {
+        let tmp = await exec('nmcli device wifi rescan ifname '+IFACE_NAME);
+    }
+
     private async connectLoop(): Promise<void> {
         let firstrun: boolean = true;
         while (true) {
@@ -115,9 +126,15 @@ export class ConnectionManager extends EventEmitter {
             else {
                 await this.sleep(this._interval);
             }
+            this._sendLoopIterations += 1;
             console.log('Connection Manager - Scanning');
             let scanResults: Array<Network>;
             try {
+                if (this._sendLoopIterations >= this._scanIterations) {
+                    // await this.forceRescan();
+                    // await this.sleep(this._scanWait);
+                    this._sendLoopIterations = 0;
+                }
                 scanResults = await wifi.scan();
             } catch (e) {
                 console.log('Connection Manager - Error trying to scan');
@@ -133,6 +150,7 @@ export class ConnectionManager extends EventEmitter {
             let bestLora: {ap: AP|null, net: Network|null} = {ap: null, net: null}
 
             scanResults.forEach((net: Network) => {
+                console.log({ssid: net.ssid, q: net.quality});
                 for (let j = 0; j < this._aps.length; j++) {
                     let ap = this._aps[j];
                     if (net.ssid === ap.ssid) {
