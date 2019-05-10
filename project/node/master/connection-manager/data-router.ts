@@ -3,6 +3,8 @@
 import * as CM from './connection-manager';
 import * as BSON from 'bson';
 import {Client, Pool, ResultBuilder} from 'pg';
+// import {Client as MClient} from 'mqtt';
+import {AsyncClient as MClient, connect as Mconnect} from 'async-mqtt';
 
 const uuidv4 = require('uuid/v4');
 
@@ -58,12 +60,21 @@ export class Data {
         return this._data;
     }
 
+    private toJsonObject(): {stream: string, timestamp: number, data: {}} {
+        let tmp: {stream: string, timestamp: number, data: {}} = {
+            stream: this._uuid,
+            timestamp: this._timestamp,
+            data: this._data,
+        }
+        return tmp;
+    }
+
     public get json(): string {
-        return JSON.stringify(this._data);
+        return JSON.stringify(this.toJsonObject());
     }
 
     public get bson(): Buffer {
-        return BSON.serialize(this._data);
+        return BSON.serialize(this.toJsonObject());
     }
     
 }
@@ -74,10 +85,11 @@ export class DataRouter {
     private _buffer: DataBuffer = new DataBuffer(PG_USER, PG_PASSWORD, PG_DATABASE, PG_HOST, PG_PORT);
     private _cm: CM.ConnectionManager;
 
-    //TODO: mqtt connection
+    private _client: MClient|null = null;
 
-    //TODO: keep track whenever connection changed to reconnect to mqtt broker
+    private _connectionAvailable: boolean = false;
     private _connectionChanged: boolean = false;
+    private _connectionCanUseMqtt: boolean = false;
 
     public constructor(cm: CM.ConnectionManager|null = null) {
         if (cm !== null) {
@@ -86,17 +98,46 @@ export class DataRouter {
         else {
             this._cm = new CM.ConnectionManager();
         }
-        this._cm.on('connect', this.cmConnectCallback);
+        this._cm.on('connect', this.cmConnectCallback.bind(this));
         this.sendLoop();
     }
 
     private cmConnectCallback(ap:CM.AP|null,net:CM.Network|null,newConnection:boolean): void {
+
         if (ap !== null && net !== null) {
-            // console.log('CONNECT TRIGGERED ' + ap.ssid);
-            if (newConnection) {
-                // console.log('\treconnect')
+            if (!this._connectionAvailable || newConnection) {
+                this._connectionChanged = true;
+            }
+            this._connectionAvailable = true;
+            if (ap.type === CM.APtype.WIFI || ap.type === CM.APtype.HOTSPOT) {
+                this._connectionCanUseMqtt = true;
+            }
+            else {
+                this._connectionCanUseMqtt = false;
             }
         }
+        else {
+            if (this._connectionAvailable) {
+                this._connectionChanged = true;
+            }
+            this._connectionAvailable = false;
+            this._connectionCanUseMqtt = false;
+        }
+
+        if (this._client !== null) {
+            if (!this._connectionAvailable || this._connectionChanged) {
+                this._client.end(true);
+                this._client = null;
+            }
+        }
+        //TODO: change username/password
+        if (this._client === null && this._connectionAvailable && this._connectionCanUseMqtt) {
+            this._client = Mconnect('mqtt://cwout.be', {
+                username: 'test',
+                password: 'test',
+            });
+        }
+
     }
 
     public get connectionManager(): Readonly<CM.ConnectionManager> {
@@ -126,6 +167,7 @@ export class DataRouter {
                 continue;
             }
             let minU: DataUrgency = DataUrgency.WHENEVER;
+            let needsMqttClient: boolean = true;
             if (this._cm.lastConnectedAP.type === CM.APtype.UNDEFINED) {
                 console.log('Data Router - Current connection type unknown - pausing')
                 await this.sleep(5000);
@@ -145,6 +187,7 @@ export class DataRouter {
             }
             else if (this._cm.lastConnectedAP.type === CM.APtype.LORA) {
                 minU = DataUrgency.ASAP;
+                needsMqttClient = false;
             }
             let data: Array<Data> = await this._buffer.peek(minU);
             if (data.length === 0) {
@@ -153,13 +196,28 @@ export class DataRouter {
                 console.log('Data Router - No data to send on current connection - resuming')
                 continue;
             }
+            if (needsMqttClient) {
+                if (this._client === null) {
+                    console.log('Data Router - No MQTT client available - pausing')
+                    await this.sleep(1000);
+                    console.log('Data Router - No MQTT client available - resuming')
+                    continue;
+                }
+                else if (!this._client.connected) {
+                    console.log('Data Router - MQTT client not connected yet - pausing')
+                    await this.sleep(1000);
+                    console.log('Data Router - MQTT client not connected yet - resuming')
+                    continue;
+                }
+            }
             console.log('Data Router - Sending');
             for (let i: number = 0; i < data.length; i++) {
-                //TODO: actually send data
-                console.log(data[i].bson);
+                if (data[i] === null) { continue; }
+                if (needsMqttClient && this._client !== null && this._client.connected) {
+                    await this._client.publish('0/data', data[i].bson);
+                }
                 let id: number|null = data[i].id;
                 if (id !== null) {
-                    console.log('\t'+id);
                     this._buffer.remove([id]);
                 }
             }
@@ -198,7 +256,6 @@ class DataBuffer {
         if (insertedId < 0) {
             return false;
         }
-        console.log(insertedId);
         return true;
     }
 
@@ -243,18 +300,18 @@ class DataBuffer {
 
 }
 
-let cm: CM.ConnectionManager = new CM.ConnectionManager(5000);
-let dr = new DataRouter(cm);
+// let cm: CM.ConnectionManager = new CM.ConnectionManager();
+let dr = new DataRouter();
 
-dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
-dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
-dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'XT1635-02 4458', 'shagra2018', 10, 5));
+dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'cw-2.4', '9edFrBDobS', 5, 120));
+dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'telenet-A837A-extended', '57735405', 5, 50));
+dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'XT1635-02 4458', 'shagra2018', 0, 5000));
 
 setTimeout(()=>{
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
+    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));

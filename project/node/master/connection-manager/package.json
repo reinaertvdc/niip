@@ -5,6 +5,7 @@
     "@types/mqtt": "^2.5.0",
     "@types/pg": "^7.4.14",
     "@types/uuid": "^3.4.4",
+    "async-mqtt": "^2.2.1",
     "bson": "^4.0.2",
     "mqtt": "^2.18.8",
     "node-wifi": "^2.0.5",
