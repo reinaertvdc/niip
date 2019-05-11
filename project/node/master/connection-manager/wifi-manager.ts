@@ -1,6 +1,3 @@
-#!/usr/bin/env ts-node
-
-
 import {exec as execCB} from 'child_process';
 import {sleep} from './sleep-util';
 
@@ -176,12 +173,40 @@ export class WifiManager {
         return nets;
     }
 
-    public async connections(): Promise<void> {
-        //TODO
+    public async connections(): Promise<Array<Network>> {
+        if (!(await this.init())) { return []; }
+        let out: Array<Array<string>> = (await this.runNmcliCmd(['active','ssid','bssid','mode','chan','freq','signal','security','wpa-flags','rsn-flags'], 'dev wifi list', true)).parsed;
+        let nets: Array<Network> = [];
+        for (let i: number = 0; i < out.length; i++) {
+            if (out[i][0] !== 'yes') { continue; }
+            let net: Network = {
+                ssid: out[i][1],
+                bssid: out[i][2],
+                mac: out[i][2],
+                mode: out[i][3],
+                channel: parseInt(out[i][4]),
+                frequency: parseInt(out[i][5]),
+                signal_level: (parseFloat(out[i][6],)/2 - 100),
+                quality: parseFloat(out[i][6]),
+                security: out[i][7] !== '(none)' ? out[i][7] : 'none',
+                security_flags: {
+                    wpa: out[i][8],
+                    rsn: out[i][9],
+                },
+            }
+            nets.push(net);
+        }
+        return nets;
+    }
+
+    private async delete(ssid: string): Promise<void> {
+        if (!(await this.init())) { return; }
+        await this.runNmcliCmd([], 'conn delete id \'' + ssid + '\'', false);
     }
 
     public async connect(ssid: string, psk: string): Promise<boolean> {
-        //TODO: delete old connection (otherwise creates a mess of AP's in NetworkManager)
+        if (!(await this.init())) { return false; }
+        await this.delete(ssid);
         let err: string =  (await this.runNmcliCmd([], 'dev wifi connect \'' + ssid + '\' password \'' + psk + '\'', true, 10)).err;
         if (err.includes('Error')) {
             return false;
@@ -190,17 +215,19 @@ export class WifiManager {
     }
 
     public async disconnect(): Promise<void> {
-        //TODO
+        if (!(await this.init())) { return; }
+        await this.runNmcliCmd([], 'dev disconnect', true);
     }
 
 }
 
-async function test() {
-    let wifi: WifiManager = new WifiManager();
-    let ok: boolean = await wifi.init();
-    // console.log(wifi.iface);
-    await wifi.scan(true);
-    
-}
 
-test();
+// EXAMPLE CODE BELOW
+// async function test() {
+//     let wifi: WifiManager = new WifiManager();
+//     let ok: boolean = await wifi.init();
+//     console.log(wifi.iface);
+//     console.log(await wifi.scan(true));
+//     console.log(await wifi.connections());    
+// }
+// test();
