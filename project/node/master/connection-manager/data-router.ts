@@ -91,12 +91,18 @@ export class DataRouter {
     private _connectionChanged: boolean = false;
     private _connectionCanUseMqtt: boolean = false;
 
-    public constructor(cm: CM.ConnectionManager|null = null) {
-        if (cm !== null) {
-            this._cm = cm;
+    public constructor()
+    public constructor(wifiIface: string|number|null)
+    public constructor(cm: CM.ConnectionManager)
+    public constructor(arg: CM.ConnectionManager|string|number|null = null) {
+        if (arg === null) {
+            this._cm = new CM.ConnectionManager();
+        }
+        else if (arg instanceof CM.ConnectionManager) {
+            this._cm = arg;
         }
         else {
-            this._cm = new CM.ConnectionManager();
+            this._cm = new CM.ConnectionManager(arg);
         }
         this._cm.on('connect', this.cmConnectCallback.bind(this));
         this.sendLoop();
