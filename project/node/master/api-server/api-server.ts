@@ -1,5 +1,6 @@
 const ws = require("ws");
 const uuid = require("uuid/v4");
+const bonjour = require("bonjour")();
 
 import { DataProvider, DataDescription } from "../data-provider/data-provider";
 
@@ -42,6 +43,12 @@ class APIServer {
 
         this.wsServer.on("connection", (connection) => {
             this.onConnection(connection);
+        });
+
+        bonjour.publish({
+            name: "LogiTrack Node API",
+            type: "lgtrack_api",
+            port: port
         });
     }
 

@@ -19,6 +19,7 @@
   "dependencies": {
     "@ionic-native/bluetooth-serial": "^5.5.0",
     "@ionic-native/core": "^5.5.1",
+    "bonjour": "^3.5.0",
     "commander": "^2.20.0",
     "rxjs": "^6.5.1",
     "serialport": "^7.1.4",
