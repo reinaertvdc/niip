@@ -1,14 +1,11 @@
 #!/usr/bin/env ts-node
 
-import {exec} from 'child_process';
 import {EventEmitter} from 'events';
 
-let wifi: any = require('node-wifi');
+import {sleep} from './sleep-util';
+import {WifiManager, Network} from './wifi-manager';
+export {Network} from './wifi-manager';
 
-
-//TODO: change to correct iface name
-const IFACE_NAME: string = 'wlp3s0';
-wifi.init({iface:IFACE_NAME});
 
 export enum APtype {
     WIFI,
@@ -62,37 +59,22 @@ export class AP {
 }
 
 
-export interface Network {
-    ssid: string;
-    bssid: string;
-    mac:string;
-    mode:string;
-    channel: number;
-    frequency: number;
-    signal_level: number;
-    quality: number;
-    security: string;
-    security_flags: {wpa: string, rsn: string}
-}
-
-
 export class ConnectionManager extends EventEmitter {
 
+    private _wifi: WifiManager;
     private _interval: number;
     private _scanWait: number;
-    private _scanIterations: number;
-    private _sendLoopIterations: number = 0;
     private _minQ: number = 40;
     private _aps: Array<AP> = [];
     private _ap: AP|null = null;
     private _net: Network|null = null;
 
-    public constructor(wifiCheckInterval: number = 10000, scanWaitTime: number = 10000, scanIterations: number = 6, minQuality: number = 25) {
+    public constructor(wifiIface: string|number|null = null, wifiCheckInterval: number = 10000, scanWaitTime: number = 5000, minQuality: number = 25) {
         super();
         this._interval = wifiCheckInterval;
         this._scanWait = scanWaitTime;
-        this._scanIterations = scanIterations;
         this._minQ = minQuality;
+        this._wifi = new WifiManager(wifiIface);
         this.connectLoop();
     }
 
@@ -105,16 +87,70 @@ export class ConnectionManager extends EventEmitter {
         return this._aps;
     }
 
-    private async sleep(millis: number): Promise<void> {
-        return new Promise<void>(resolve => {
-            setTimeout(()=>{
-                resolve();
-            }, millis);
-        });
-    }
+    private parseScanResults(scanResults: Array<Network>): {wifi: {ap: AP|null, net: Network|null}, hotspot: {ap: AP|null, net: Network|null}, lora: {ap: AP|null, net: Network|null}} {
 
-    private async forceRescan(): Promise<void> {
-        let tmp = await exec('nmcli device wifi rescan ifname '+IFACE_NAME);
+        let bestWifi: {ap: AP|null, net: Network|null} = {ap: null, net: null}
+        let bestHotspot: {ap: AP|null, net: Network|null} = {ap: null, net: null}
+        let bestLora: {ap: AP|null, net: Network|null} = {ap: null, net: null}
+
+        scanResults.forEach((net: Network) => {
+            for (let j = 0; j < this._aps.length; j++) {
+                let ap = this._aps[j];
+                if (net.ssid === ap.ssid) {
+                    let cmpWith: {ap: AP|null, net: Network|null} = {ap: null, net: null}
+                    if (ap.type === APtype.WIFI) {
+                        cmpWith = bestWifi;
+                    }
+                    else if (ap.type === APtype.HOTSPOT) {
+                        cmpWith = bestHotspot;
+                    }
+                    else if (ap.type === APtype.LORA) {
+                        cmpWith = bestLora;
+                    }
+                    else {
+                        break;
+                    }
+                    let isBetter = false;
+                    let qd = (net === null || cmpWith.net === null ? 0 : net.quality - cmpWith.net.quality);
+                    let sf = (ap === null || cmpWith.ap === null ? 1 : ap.speed / cmpWith.ap.speed);
+                    if (cmpWith.ap === null || cmpWith.net === null) isBetter = true;
+                    else if (qd > 0) {
+                        if (cmpWith.net.quality < this._minQ) {
+                            isBetter = true;
+                        }
+                        else if (sf >= 1) {
+                            isBetter = true;
+                        }
+                        else if (qd / 10 < 2 * sf) {
+                            isBetter = true;
+                        }
+                    }
+                    else if (sf > 1) {
+                        if (qd >= this._minQ && -qd / 10 < 2 * sf) {
+                            isBetter = true;
+                        }
+                    }
+                    if (isBetter) {
+                        if (ap.type === APtype.WIFI) {
+                            bestWifi.ap = ap;
+                            bestWifi.net = net;
+                        }
+                        else if (ap.type === APtype.HOTSPOT) {
+                            bestHotspot.ap = ap;
+                            bestHotspot.net = net;
+                        }
+                        else if (ap.type === APtype.LORA) {
+                            bestLora.ap = ap;
+                            bestLora.net = net;
+                        }
+                    }
+                    break;
+                }
+            }    
+        }, this);
+
+        return {wifi: bestWifi, hotspot: bestHotspot, lora: bestLora};
+
     }
 
     private async connectLoop(): Promise<void> {
@@ -124,151 +160,69 @@ export class ConnectionManager extends EventEmitter {
                 firstrun = false;
             }
             else {
-                await this.sleep(this._interval);
+                await sleep(this._interval);
             }
-            this._sendLoopIterations += 1;
+
             console.log('Connection Manager - Scanning');
-            let scanResults: Array<Network>;
-            try {
-                if (this._sendLoopIterations >= this._scanIterations) {
-                    // await this.forceRescan();
-                    // await this.sleep(this._scanWait);
-                    this._sendLoopIterations = 0;
+            let bestNets = this.parseScanResults(await this._wifi.scan(true, this._scanWait));
+
+            if ((bestNets.wifi.ap === null || bestNets.wifi.net === null) && (bestNets.hotspot.ap === null || bestNets.hotspot.net === null)) {
+                console.log('Connection Manager - Requesting mobile hotspot');
+                console.log('Connection Manager - WARNING - not implemented yet');
+                //TODO: request hotspot (and wait)
+                bestNets = this.parseScanResults(await this._wifi.scan(true, this._scanWait));
+                if (bestNets.hotspot.ap === null || bestNets.hotspot.net === null) {
+                    console.log('Connection Manager - Could not request mobile hostpot');
                 }
-                scanResults = await wifi.scan();
-            } catch (e) {
-                console.log('Connection Manager - Error trying to scan');
-                console.log('==================================================');
-                console.log(e);
-                console.log('==================================================');
-                this.onConnect(null, null, false);
-                continue;
+                else {
+                    console.log('Connection Manager - Mobile hotspot request succesful');
+                }
             }
 
-            let bestWifi: {ap: AP|null, net: Network|null} = {ap: null, net: null}
-            let bestHotspot: {ap: AP|null, net: Network|null} = {ap: null, net: null}
-            let bestLora: {ap: AP|null, net: Network|null} = {ap: null, net: null}
-
-            scanResults.forEach((net: Network) => {
-                console.log({ssid: net.ssid, q: net.quality});
-                for (let j = 0; j < this._aps.length; j++) {
-                    let ap = this._aps[j];
-                    if (net.ssid === ap.ssid) {
-                        let cmpWith: {ap: AP|null, net: Network|null} = {ap: null, net: null}
-                        if (ap.type === APtype.WIFI) {
-                            cmpWith = bestWifi;
-                        }
-                        else if (ap.type === APtype.HOTSPOT) {
-                            cmpWith = bestHotspot;
-                        }
-                        else if (ap.type === APtype.LORA) {
-                            cmpWith = bestLora;
-                        }
-                        else {
-                            break;
-                        }
-                        let isBetter = false;
-                        let qd = (net === null || cmpWith.net === null ? 0 : net.quality - cmpWith.net.quality);
-                        let sf = (ap === null || cmpWith.ap === null ? 1 : ap.speed / cmpWith.ap.speed);
-                        if (cmpWith.ap === null || cmpWith.net === null) isBetter = true;
-                        else if (qd > 0) {
-                            if (cmpWith.net.quality < this._minQ) {
-                                isBetter = true;
-                            }
-                            else if (sf >= 1) {
-                                isBetter = true;
-                            }
-                            else if (qd / 10 < 2 * sf) {
-                                isBetter = true;
-                            }
-                        }
-                        else if (sf > 1) {
-                            if (qd >= this._minQ && -qd / 10 < 2 * sf) {
-                                isBetter = true;
-                            }
-                        }
-                        if (isBetter) {
-                            if (ap.type === APtype.WIFI) {
-                                bestWifi.ap = ap;
-                                bestWifi.net = net;
-                            }
-                            else if (ap.type === APtype.HOTSPOT) {
-                                bestHotspot.ap = ap;
-                                bestHotspot.net = net;
-                            }
-                            else if (ap.type === APtype.LORA) {
-                                bestLora.ap = ap;
-                                bestLora.net = net;
-                            }
-                        }
-                        break;
-                    }
-                }    
-            }, this);
-
-            if (bestWifi.ap !== null && bestWifi.net !== null) {
-                console.log('Connection Manager - Best wifi: ' + bestWifi.ap.ssid);
+            if (bestNets.wifi.ap !== null && bestNets.wifi.net !== null) {
+                console.log('Connection Manager - Best wifi: ' + bestNets.wifi.ap.ssid);
             }
             else {
                 console.log('Connection Manager - Best wifi: /');
             }
-            if (bestHotspot.ap !== null && bestHotspot.net !== null) {
-                console.log('Connection Manager - Best htsp: ' + bestHotspot.ap.ssid);
+            if (bestNets.hotspot.ap !== null && bestNets.hotspot.net !== null) {
+                console.log('Connection Manager - Best htsp: ' + bestNets.hotspot.ap.ssid);
             }
             else {
                 console.log('Connection Manager - Best htsp: /');
             }
-            if (bestLora.ap !== null && bestLora.net !== null) {
-                console.log('Connection Manager - Best lora: ' + bestLora.ap.ssid);
+            if (bestNets.lora.ap !== null && bestNets.lora.net !== null) {
+                console.log('Connection Manager - Best lora: ' + bestNets.lora.ap.ssid);
             }
             else {
                 console.log('Connection Manager - Best lora: /');
             }
             
             let best: {ap: AP|null, net: Network|null} = {ap: null, net: null};
-            let bestType: APtype = APtype.UNDEFINED;
-            if (bestWifi.ap !== null && bestWifi.net !== null) {
-                best = bestWifi;
-                bestType = APtype.WIFI;
+            if (bestNets.wifi.ap !== null && bestNets.wifi.net !== null) {
+                best = bestNets.wifi;
             }
-            else if (bestHotspot.ap !== null && bestHotspot.net !== null) {
-                best = bestHotspot;
-                bestType = APtype.HOTSPOT;
+            else if (bestNets.hotspot.ap !== null && bestNets.hotspot.net !== null) {
+                best = bestNets.hotspot;
             }
-            else if (bestLora.ap !== null && bestLora.net !== null) {
-                best = bestLora;
-                bestType = APtype.LORA;
+            else if (bestNets.lora.ap !== null && bestNets.lora.net !== null) {
+                best = bestNets.lora;
             }
 
             if (best.net === null || best.ap === null) {
-                continue;
-            }
-
-            console.log('Connection Manager - Getting current connections');
-            let conns: Array<Network> = [];
-
-            try {
-                conns = await wifi.getCurrentConnections();
-            } catch (e) {
-                console.log('Connection Manager - Error getting current connections');
-                console.log('==================================================');
-                console.log(e);
-                console.log('==================================================');
+                console.log('Connection Manager - No known networks found');
                 this.onConnect(null, null, false);
                 continue;
             }
 
+            console.log('Connection Manager - Getting current connections');
+            let conns: Array<Network> = await this._wifi.connections();
+
             if (conns.length === 0) {
                 console.log('Connection Manager - Connecting to ' + best.ap.ssid);
-                try {
-                    this.onConnect(null, null, false);
-                    await wifi.connect({ssid:best.ap.ssid, password:best.ap.psk});
-                } catch (e) {
-                    console.log('Connection Manager - Error while trying to connect to network');
-                    console.log('==================================================');
-                    console.log(e);
-                    console.log('==================================================');
-                    this.onConnect(null, null, false);
+                this.onConnect(null, null, false);
+                if (best.ap.ssid === null || best.ap.psk === null || !(await this._wifi.connect(best.ap.ssid, best.ap.psk))) {
+                    console.log('Connection Manager - Could not connect to ' + best.ap.ssid);
                     continue;
                 }
                 console.log('Connection Manager - Connected to ' + best.ap.ssid);
@@ -277,7 +231,7 @@ export class ConnectionManager extends EventEmitter {
             }
 
             if (conns.length > 1) {
-                console.log('Connection Manager - WARNING - More than 1 connection!');
+                console.log('Connection Manager - WARNING - More than 1 current connection on interface!');
             }
 
             let conn: {ap: AP|null, net:Network} = {ap: null, net: conns[0]};
@@ -331,14 +285,9 @@ export class ConnectionManager extends EventEmitter {
 
             if (isBetter) {
                 console.log('Connection Manager - Connecting to ' + best.ap.ssid);
-                try {
-                    this.onConnect(null, null, false);
-                    await wifi.connect({ssid:best.ap.ssid, password:best.ap.psk});
-                } catch (e) {
-                    console.log('Connection Manager - Error while trying to connect to network');
-                    console.log('==================================================');
-                    console.log(e);
-                    console.log('==================================================');
+                this.onConnect(null, null, false);
+                if (best.ap.ssid === null || best.ap.psk === null || !(await this._wifi.connect(best.ap.ssid, best.ap.psk))) {
+                    console.log('Connection Manager - Could not connect to ' + best.ap.ssid);
                     continue;
                 }
                 console.log('Connection Manager - Connected to ' + best.ap.ssid);
@@ -354,7 +303,6 @@ export class ConnectionManager extends EventEmitter {
     private onConnect(ap: AP|null, net: Network|null, newConnection: boolean): void {
         this._ap = ap;
         this._net = net;
-        //TODO: if AP type is hotspot, check connection with hotspot manager
         this.emit('connect', ap, net, newConnection);
     }
 
