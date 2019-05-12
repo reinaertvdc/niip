@@ -37,7 +37,7 @@ class DataProvider {
     public getSources(): DataDescription[] {
         // We loop over our Map using an iterator and store the sources in an array.
         var sourcesIt = this.dataSources.values();
-        var sources: DataDescription[];
+        var sources: DataDescription[] = [];
 
         let result = sourcesIt.next();
         while(!result.done) {

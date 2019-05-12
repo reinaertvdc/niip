@@ -57,6 +57,7 @@ class APIServer {
      * @param connection The newly made connection
      */
     private onConnection(connection) {
+        console.log("[DataProvider] New connection: " + connection);
         // Add a message listener
         connection.on("message", (message) => {
             console.log("[DataProvider] Received message: " + message);

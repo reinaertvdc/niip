@@ -2,5 +2,13 @@
     <string name="app_name">LogiTrack Companion</string>
     <string name="title_home">Home</string>
     <string name="title_dashboard">Dashboard</string>
-    <string name="title_notifications">Notifications</string>
+    <string name="title_map">Map</string>
+
+    <string name="service_name">LogiTrack Node API</string>
+    <string name="service_type">_lgtrack_api._tcp</string>
+
+    <string name="hotspot_title">Hotspot</string>
+    <string name="login_title">Login</string>
+    <string name="websocket_title">WebSocket</string>
+    <string name="wifi_title">Wi-Fi</string>
 </resources>

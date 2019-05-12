@@ -213,7 +213,6 @@ class OBD2DataReader {
 	}
 
 	private updateBuffer(data: PIDValueWrapper[]): void {
-		console.log("[OBD2DataReader] Buffered data updated.");
 		for(let i = 0; i < data.length; i++) {
 			this.bufferedData.set(data[i].pid, data[i].value.data);
 		}
