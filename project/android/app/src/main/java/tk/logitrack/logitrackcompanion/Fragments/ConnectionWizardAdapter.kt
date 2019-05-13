@@ -4,11 +4,18 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentPagerAdapter
 
-class ConnectionWizardAdapter(fragmentManager: FragmentManager): FragmentPagerAdapter(fragmentManager) {
+class ConnectionWizardAdapter(fragmentManager: FragmentManager, listener: WizardFragmentListener): FragmentPagerAdapter(fragmentManager) {
 	private val hotspotFragment: WizardHotspot = WizardHotspot()
 	private val loginFragment: WizardLogin = WizardLogin()
 	private val webSocketFragment: WizardWebSocket = WizardWebSocket()
 	private val wifiFragment: WizardWIFI = WizardWIFI()
+
+	init {
+		loginFragment.setListener(listener)
+		hotspotFragment.setListener(listener)
+		webSocketFragment.setListener(listener)
+		wifiFragment.setListener(listener)
+	}
 
 	override fun getItem(position: Int): Fragment {
 		when (position) {

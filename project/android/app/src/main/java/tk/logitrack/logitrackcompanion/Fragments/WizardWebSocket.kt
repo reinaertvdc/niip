@@ -3,17 +3,18 @@ package tk.logitrack.logitrackcompanion.Fragments
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
+import com.tinder.scarlet.WebSocket
+import tk.logitrack.logitrackcompanion.LogiTrack.NodeAPI
 
 import tk.logitrack.logitrackcompanion.R
+import tk.logitrack.logitrackcompanion.ServiceScanner
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
 
 /**
  * A simple [Fragment] subclass.
@@ -25,17 +26,13 @@ private const val ARG_PARAM2 = "param2"
  *
  */
 class WizardWebSocket : Fragment() {
-	// TODO: Rename and change types of parameters
-	private var param1: String? = null
-	private var param2: String? = null
-	private var listener: OnFragmentInteractionListener? = null
+	private var listener: WizardFragmentListener? = null
+
+	private lateinit var deviceFound: CheckBox
+	private lateinit var socketConnected: CheckBox
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
-		arguments?.let {
-			param1 = it.getString(ARG_PARAM1)
-			param2 = it.getString(ARG_PARAM2)
-		}
 	}
 
 	override fun onCreateView(
@@ -46,23 +43,32 @@ class WizardWebSocket : Fragment() {
 		return inflater.inflate(R.layout.fragment_wizard_web_socket, container, false)
 	}
 
-	// TODO: Rename method, update argument and hook method into UI event
-	fun onButtonPressed(uri: Uri) {
-		listener?.onFragmentInteraction(FragmentName.WizardWebSocket, uri)
+	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+		super.onViewCreated(view, savedInstanceState)
+
+		deviceFound = view.findViewById(R.id.wizard_socket_ip_box)
+		socketConnected = view.findViewById(R.id.wizard_socket_connected_box)
 	}
 
 	override fun onAttach(context: Context) {
 		super.onAttach(context)
-		if (context is OnFragmentInteractionListener) {
-			listener = context
-		} else {
-			throw RuntimeException(context.toString() + " must implement OnFragmentInteractionListener")
-		}
 	}
 
 	override fun onDetach() {
 		super.onDetach()
 		listener = null
+	}
+
+	fun setListener(listener: WizardFragmentListener) {
+		this.listener = listener
+	}
+
+	fun setDeviceFound(found: Boolean) {
+		this.deviceFound.isChecked = found
+	}
+
+	fun setDeviceConnected(connected: Boolean) {
+		this.socketConnected.isChecked = connected
 	}
 
 	companion object {
@@ -79,8 +85,7 @@ class WizardWebSocket : Fragment() {
 		fun newInstance(param1: String, param2: String) =
 			WizardWebSocket().apply {
 				arguments = Bundle().apply {
-					putString(ARG_PARAM1, param1)
-					putString(ARG_PARAM2, param2)
+
 				}
 			}
 	}

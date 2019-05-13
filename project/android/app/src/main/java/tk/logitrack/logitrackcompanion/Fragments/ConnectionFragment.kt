@@ -1,20 +1,32 @@
 package tk.logitrack.logitrackcompanion.Fragments
 
+import android.app.Activity.RESULT_OK
 import android.content.Context
+import android.content.Intent
+import android.net.ConnectivityManager
 import android.net.Uri
+import android.net.wifi.WifiManager
+import android.opengl.Visibility
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager.widget.ViewPager
 import com.tbuonomo.viewpagerdotsindicator.DotsIndicator
 import com.tinder.scarlet.WebSocket
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
+import tk.logitrack.logitrackcompanion.Data.LoginData
+import tk.logitrack.logitrackcompanion.Data.NodeData
+import tk.logitrack.logitrackcompanion.Data.UserData
 import tk.logitrack.logitrackcompanion.LogiTrack.ListData
-import tk.logitrack.logitrackcompanion.LogiTrack.LogiTrackAPI
+import tk.logitrack.logitrackcompanion.LogiTrack.NodeAPI
 import tk.logitrack.logitrackcompanion.LogiTrack.StandardReply
+import tk.logitrack.logitrackcompanion.LogiTrack.WebAPI
 import tk.logitrack.logitrackcompanion.R
 import tk.logitrack.logitrackcompanion.R.layout
 import tk.logitrack.logitrackcompanion.ServiceScanner
@@ -33,27 +45,30 @@ private const val ARG_SERVICE_TYPE = "serviceType"
  * create an instance of this fragment.
  *
  */
-class ConnectionFragment : Fragment() {
+class ConnectionFragment : Fragment(), WizardFragmentListener {
 	private lateinit var parentContext: FragmentActivity
+	private lateinit var adapter: ConnectionWizardAdapter
 
-	private val nodeSSID: String = "telenet-D1E13"
+	private lateinit var scanner: ServiceScanner
+	private lateinit var webAPI: WebAPI
+	private var listener: WizardFragmentListener? = null
 
-	private var serviceName: String? = null
-	private var serviceType: String? = null
-	private var serviceScanner: ServiceScanner? = null
-	private var listener: OnFragmentInteractionListener? = null
+	private var loginData: LoginData? = null
+	private var userData: UserData? = null
+	private var nodeData: NodeData? = null
+
+	private lateinit var viewPager: ViewPager
+
+	private lateinit var topFill: View
+	private lateinit var username: TextView
+	private lateinit var userImage: ImageView
+
+	private var currentStep = 0
+	private val maxSteps = 4
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		arguments?.let {
-			serviceName = it.getString(ARG_SERVICE_NAME)
-			serviceType = it.getString(ARG_SERVICE_TYPE)
-			if(serviceName != null && serviceType != null && context != null) {
-				serviceScanner = ServiceScanner(serviceName as String, serviceType as String, context as Context)
-				if(!LogiTrackAPI.isConnected) {
-
-				}
-			}
 		}
 	}
 
@@ -65,28 +80,128 @@ class ConnectionFragment : Fragment() {
 		return inflater.inflate(layout.fragment_connection, container, false)
 	}
 
-	override fun onActivityCreated(savedInstanceState: Bundle?) {
-		super.onActivityCreated(savedInstanceState)
-		val viewPager: ViewPager = view!!.findViewById(R.id.connection_wizard)
-		val dotsIndicator = view!!.findViewById<DotsIndicator>(R.id.dots_indicator)
-		viewPager.adapter = ConnectionWizardAdapter(parentContext.supportFragmentManager)
+	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+		super.onViewCreated(view, savedInstanceState)
+
+		topFill = view.findViewById(R.id.top_fill)
+		username = view.findViewById(R.id.user_name)
+		userImage = view.findViewById(R.id.user_image)
+
+		topFill.visibility = View.GONE
+		username.visibility = View.GONE
+		userImage.visibility = View.GONE
+
+		val dotsIndicator = view.findViewById<DotsIndicator>(R.id.dots_indicator)
+		viewPager = view.findViewById(R.id.connection_wizard)
+		adapter = ConnectionWizardAdapter(parentContext.supportFragmentManager, this)
+		viewPager.adapter = adapter
+		viewPager.setCurrentItem(0)
 		dotsIndicator.setViewPager(viewPager)
+
 	}
 
-	// TODO: Rename method, update argument and hook method into UI event
-	fun onButtonPressed(uri: Uri) {
-		listener?.onFragmentInteraction(FragmentName.ConnectionFragment, uri)
+	override fun onActivityCreated(savedInstanceState: Bundle?) {
+		super.onActivityCreated(savedInstanceState)
+
+		webAPI = WebAPI.create()
+	}
+
+	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+		super.onActivityResult(requestCode, resultCode, data)
+
+		Log.d(javaClass.canonicalName, "Activity Result")
+		when(requestCode) {
+			0 ->
+				if(resultCode == RESULT_OK && data != null) {
+					val token: String = data.getStringExtra("token")
+					val id: String = data.getStringExtra("id")
+					onLogin(token, id)
+				}
+				else {
+					onLoginFail()
+				}
+		}
+	}
+
+	override fun onLogin(token: String, id: String) {
+		loginData = LoginData(token, id)
+
+		webAPI.getUser(id)
+			.subscribeOn(Schedulers.io())
+			.observeOn(AndroidSchedulers.mainThread())
+			.subscribe({
+				result: UserData ->
+					onUserData(result)
+			}, {
+				error ->
+					Log.e(this.javaClass.canonicalName, error.toString())
+			})
+
+		webAPI.getNode(id)
+			.subscribeOn(Schedulers.io())
+			.observeOn(AndroidSchedulers.mainThread())
+			.subscribe({
+				result: NodeData ->
+					onNodeData(result)
+			}, {
+				error ->
+					Log.e(this.javaClass.canonicalName, error.toString())
+			})
+	}
+
+	override fun onLogout() {
+		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+	}
+
+	fun onUserData(data: UserData) {
+		this.userData = data
+
+		this.topFill.visibility = View.VISIBLE
+		this.username.visibility = View.VISIBLE
+		this.userImage.visibility = View.VISIBLE
+		this.username.text = userData!!.firstName + " " + userData!!.lastName
+
+		adapter.getLoginFragment().setRequestImage(true)
+		adapter.getLoginFragment().setRequestName(true)
+
+		checkLoginStep()
+	}
+
+	fun onNodeData(data: NodeData) {
+		nodeData = data
+
+		adapter.getLoginFragment().setRequestNode(true)
+		adapter.getWifiFragment().setCurrentWiFi(getCurrentSSID())
+		adapter.getWifiFragment().setWantedWiFi(data.ssid)
+
+		checkLoginStep()
+	}
+
+	fun checkLoginStep() {
+		if(userData != null && nodeData != null && loginData != null) {
+			if(getCurrentSSID().compareTo(nodeData!!.ssid) == 0) {
+				viewPager.setCurrentItem(2)
+				startScanner()
+			}
+			else {
+				viewPager.setCurrentItem(1)
+			}
+		}
+	}
+
+	fun onLoginFail() {
+
+	}
+
+	override fun onWiFiConnect() {
+		// TODO SWITCH WIFI
 	}
 
 	override fun onAttach(context: Context) {
 		super.onAttach(context)
 
 		parentContext = context as FragmentActivity
-		if (context is OnFragmentInteractionListener) {
-			listener = context
-		} else {
-			throw RuntimeException(context.toString() + " must implement OnFragmentInteractionListener")
-		}
+		scanner = ServiceScanner(getString(R.string.service_name), getString(R.string.service_type), context)
 	}
 
 	override fun onDetach() {
@@ -94,29 +209,65 @@ class ConnectionFragment : Fragment() {
 		listener = null
 	}
 
-	fun connect(host: String, port: Int) {
-		LogiTrackAPI.connect(host, port)
+	private fun getCurrentSSID(): String {
+		var ssid = "None"
 
-		val onConnect = LogiTrackAPI.api.observeWebSocketEvent()
-			.filter { it is WebSocket.Event.OnConnectionOpened<*> }
-			.subscribe {
-				LogiTrackAPI.api.sendListData(ListData())
+		val connManager = parentContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+		val networkInfo = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
+		if (networkInfo.isConnected) {
+			val wifiManager = context!!.getSystemService(Context.WIFI_SERVICE) as WifiManager
+			val connectionInfo = wifiManager.connectionInfo
+			if (connectionInfo != null && connectionInfo.ssid.isNotEmpty()) {
+				ssid = connectionInfo.ssid
+				ssid = ssid.removeRange(0, 1)
+				ssid = ssid.removeRange(ssid.length - 1, ssid.length)
 			}
+		}
+		return ssid
+	}
 
-		val listData = LogiTrackAPI.api.observeListData()
-			.subscribe {
-					data: StandardReply ->
-				val sources: Any? = data.data.get("sources")
+	fun startScanner() {
+		scanner.search {
+				host: String, port: Int ->
+			onServiceFound(host, port)
+		}
+	}
 
-				if (sources != null && sources is List<*>) {
-					Log.d(this.javaClass.name, "Received available data from server: ")
+	fun onServiceFound(host: String, port: Int) {
+		adapter.getWebsocketFragment().setDeviceFound(true)
 
-					for (source in sources) {
-						Log.d(this.javaClass.name, "\t${source}")
-					}
-				}
+		NodeAPI.connect(host, port)
+		NodeAPI.api.observeWebSocketEvent().subscribe {
+				event ->
+			if(event is WebSocket.Event.OnConnectionOpened<*>) {
+				onSocketOpened()
 			}
+			else if(event is WebSocket.Event.OnConnectionClosed) {
+				onSocketClosed()
+			}
+			else if(event is WebSocket.Event.OnConnectionFailed) {
+				onSocketFailed()
+			}
+		}
+	}
 
+	fun onSocketOpened() {
+		adapter.getWebsocketFragment().setDeviceConnected(true)
+		scanner.stop()
+	}
+
+	fun onSocketClosed() {
+		adapter.getWebsocketFragment().setDeviceConnected(false)
+		startScanner()
+	}
+
+	fun onSocketFailed() {
+		adapter.getWebsocketFragment().setDeviceConnected(false)
+		startScanner()
+	}
+
+	override fun onAutoConnectChange(value: Boolean) {
+		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
 	}
 
 	companion object {

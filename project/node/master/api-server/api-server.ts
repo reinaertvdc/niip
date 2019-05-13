@@ -146,7 +146,7 @@ class APIServer {
                     }
                     // Add the UUID to the data
                     reply.data["uuid"] = streamUUID;
-
+                    console.log("Sent: " + reply)
                     connection.send(JSON.stringify(reply))
                 })
                 // If we get an error here we probably need to close the connection and interval.

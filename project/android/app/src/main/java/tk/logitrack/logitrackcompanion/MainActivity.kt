@@ -8,9 +8,9 @@ import androidx.fragment.app.FragmentManager
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.tinder.scarlet.lifecycle.android.AndroidLifecycle
 import tk.logitrack.logitrackcompanion.Fragments.*
-import tk.logitrack.logitrackcompanion.LogiTrack.LogiTrackAPI
+import tk.logitrack.logitrackcompanion.LogiTrack.NodeAPI
 
-class MainActivity : AppCompatActivity(), OnFragmentInteractionListener {
+class MainActivity : AppCompatActivity() {
     private val fragmentManager: FragmentManager = supportFragmentManager
 
     private val connectionFragment: ConnectionFragment = ConnectionFragment()
@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity(), OnFragmentInteractionListener {
             R.id.navigation_dashboard -> {
                 fragmentManager.beginTransaction().hide(activeFragment).show(obdFragment).commit()
                 activeFragment = obdFragment
+                obdFragment.start()
                 return@OnNavigationItemSelectedListener true
             }
             R.id.navigation_map -> {
@@ -46,14 +47,10 @@ class MainActivity : AppCompatActivity(), OnFragmentInteractionListener {
         val navView: BottomNavigationView = findViewById(R.id.nav_bar)
 
         navView.setOnNavigationItemSelectedListener(onNavigationItemSelectedListener)
-        LogiTrackAPI.setLifecycle(AndroidLifecycle.ofApplicationForeground(application))
+        NodeAPI.setLifecycle(AndroidLifecycle.ofApplicationForeground(application))
 
         fragmentManager.beginTransaction().add(R.id.fragment_container, mapFragment, "mapFragment").hide(mapFragment).commit()
         fragmentManager.beginTransaction().add(R.id.fragment_container, obdFragment, "obdFragment").hide(obdFragment).commit()
         fragmentManager.beginTransaction().add(R.id.fragment_container, connectionFragment, "connectionFragment").commit()
-    }
-
-    override fun onFragmentInteraction(fragment: FragmentName, uri: Uri) {
-
     }
 }

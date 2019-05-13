@@ -5,10 +5,9 @@ import com.tinder.scarlet.ws.Receive
 import com.tinder.scarlet.ws.Send
 import io.reactivex.Flowable
 
-interface LogiTrackAPIDefinition {
+interface NodeAPIDefinition {
 	@Receive
 	fun observeWebSocketEvent(): Flowable<WebSocket.Event>
-
 
 	@Receive
 	fun observeStartDataStream(): Flowable<StandardReply>
@@ -43,12 +42,13 @@ data class StandardReply (
 	val data: MutableMap<String, kotlin.Any> = HashMap()
 )
 
-class StartDataStream(sources: List<String>) {
+class StartDataStream(sources: List<String>, interval: Int) {
 	val type: String = "start-data-stream"
 	val data: MutableMap<String, kotlin.Any> = HashMap()
 
 	init {
 		data["sources"] = sources
+		data["interval"] = interval
 	}
 }
 

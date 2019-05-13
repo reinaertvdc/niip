@@ -12,6 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="100dp"
         android:background="@color/colorPrimary"
+        android:visibility="gone"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -29,20 +30,22 @@
         app:layout_constraintBottom_toTopOf="@+id/user_image"
         app:layout_constraintEnd_toEndOf="@+id/top_fill"
         app:layout_constraintStart_toStartOf="@+id/top_fill"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="gone" />
 
     <com.mikhaellopez.circularimageview.CircularImageView
         android:id="@+id/user_image"
         android:layout_width="124dp"
         android:layout_height="124dp"
-        android:layout_marginTop="50dp"
+        android:layout_marginTop="40dp"
         android:scaleType="centerInside"
         android:src="@drawable/zerotwo"
         app:civ_border_color="@color/colorPrimary"
         app:civ_border_width="8dp"
         app:layout_constraintEnd_toEndOf="@+id/top_fill"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/top_fill" />
+        app:layout_constraintTop_toTopOf="@+id/top_fill"
+        tools:visibility="gone" />
 
     <androidx.viewpager.widget.ViewPager
         android:id="@+id/connection_wizard"
