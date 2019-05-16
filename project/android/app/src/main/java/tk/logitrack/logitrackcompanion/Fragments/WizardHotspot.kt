@@ -28,7 +28,7 @@ class WizardHotspot : Fragment() {
 	// TODO: Rename and change types of parameters
 	private var param1: String? = null
 	private var param2: String? = null
-	private var listener: OnFragmentInteractionListener? = null
+	private var listener: WizardFragmentListener? = null
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -48,21 +48,20 @@ class WizardHotspot : Fragment() {
 
 	// TODO: Rename method, update argument and hook method into UI event
 	fun onButtonPressed(uri: Uri) {
-		listener?.onFragmentInteraction(FragmentName.WizardHotspot, uri)
+
 	}
 
 	override fun onAttach(context: Context) {
 		super.onAttach(context)
-		if (context is OnFragmentInteractionListener) {
-			listener = context
-		} else {
-			throw RuntimeException(context.toString() + " must implement OnFragmentInteractionListener")
-		}
 	}
 
 	override fun onDetach() {
 		super.onDetach()
 		listener = null
+	}
+
+	fun setListener(listener: WizardFragmentListener) {
+		this.listener = listener
 	}
 
 	companion object {

@@ -1,19 +1,21 @@
 package tk.logitrack.logitrackcompanion.Fragments
 
+import android.app.Activity
 import android.content.Context
-import android.net.Uri
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.CheckBox
+import android.widget.ProgressBar
+import android.widget.TextView
+import tk.logitrack.logitrackcompanion.LoginActivity
 
 import tk.logitrack.logitrackcompanion.R
-
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
 
 /**
  * A simple [Fragment] subclass.
@@ -25,16 +27,22 @@ private const val ARG_PARAM2 = "param2"
  *
  */
 class WizardLogin : Fragment() {
-	// TODO: Rename and change types of parameters
-	private var param1: String? = null
-	private var param2: String? = null
-	private var listener: OnFragmentInteractionListener? = null
+	private lateinit var parentContext: Context
+	private lateinit var listener: WizardFragmentListener
+
+	private lateinit var loginButton: Button
+	private lateinit var logoutButton: Button
+	private lateinit var progressBar: ProgressBar
+	private lateinit var progressBarText: TextView
+
+	private lateinit var requestName: CheckBox
+	private lateinit var requestImage: CheckBox
+	private lateinit var requestNode: CheckBox
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		arguments?.let {
-			param1 = it.getString(ARG_PARAM1)
-			param2 = it.getString(ARG_PARAM2)
+
 		}
 	}
 
@@ -46,23 +54,80 @@ class WizardLogin : Fragment() {
 		return inflater.inflate(R.layout.fragment_wizard_login, container, false)
 	}
 
-	// TODO: Rename method, update argument and hook method into UI event
-	fun onButtonPressed(uri: Uri) {
-		listener?.onFragmentInteraction(FragmentName.WizardLogin, uri)
+	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+		super.onViewCreated(view, savedInstanceState)
+
+		loginButton = view.findViewById(R.id.wizard_login_button)
+		logoutButton = view.findViewById(R.id.wizard_logout_button)
+		progressBar = view.findViewById(R.id.wizard_login_progress)
+		progressBarText = view.findViewById(R.id.wizard_login_progress_text)
+
+		requestName = view.findViewById(R.id.wizard_socket_ip_box)
+		requestImage = view.findViewById(R.id.wizard_socket_connected_box)
+		requestNode = view.findViewById(R.id.wizard_login_wifi_box)
+
+		loginButton.setOnClickListener {
+			buttonView: View ->
+				val intent = Intent(parentContext, LoginActivity::class.java)
+				startActivityForResult(intent, 0)
+		}
+
+		loginButton.visibility = View.VISIBLE
+		logoutButton.visibility = View.GONE
+		progressBar.visibility = View.GONE
+		progressBarText.visibility = View.GONE
 	}
 
 	override fun onAttach(context: Context) {
 		super.onAttach(context)
-		if (context is OnFragmentInteractionListener) {
-			listener = context
-		} else {
-			throw RuntimeException(context.toString() + " must implement OnFragmentInteractionListener")
+
+		parentContext = context
+	}
+
+	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+		super.onActivityResult(requestCode, resultCode, data)
+
+		Log.d(javaClass.canonicalName, "Activity Result")
+		when(requestCode) {
+			0 ->
+				if(resultCode == Activity.RESULT_OK && data != null) {
+					val token: String = data.getStringExtra("token")
+					val id: String = data.getStringExtra("id")
+					onLogin(token, id)
+				}
+				else {
+					onLoginFail()
+				}
 		}
 	}
 
-	override fun onDetach() {
-		super.onDetach()
-		listener = null
+	fun setListener(listener: WizardFragmentListener) {
+		this.listener = listener
+	}
+
+	fun onLogin(token: String, id: String) {
+		loginButton.visibility = View.GONE
+		progressBar.visibility = View.VISIBLE
+		progressBarText.visibility = View.VISIBLE
+
+		if(listener != null)
+			listener!!.onLogin(token, id)
+	}
+
+	fun onLoginFail() {
+
+	}
+
+	fun setRequestName(value: Boolean) {
+		this.requestName.isChecked = value
+	}
+
+	fun setRequestImage(value: Boolean) {
+		this.requestImage.isChecked = value
+	}
+
+	fun setRequestNode(value: Boolean) {
+		this.requestNode.isChecked = value
 	}
 
 	companion object {
@@ -79,8 +144,6 @@ class WizardLogin : Fragment() {
 		fun newInstance(param1: String, param2: String) =
 			WizardLogin().apply {
 				arguments = Bundle().apply {
-					putString(ARG_PARAM1, param1)
-					putString(ARG_PARAM2, param2)
 				}
 			}
 	}

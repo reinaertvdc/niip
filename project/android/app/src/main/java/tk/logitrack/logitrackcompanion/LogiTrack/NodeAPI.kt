@@ -11,12 +11,12 @@ import com.tinder.scarlet.websocket.okhttp.newWebSocketFactory
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-object LogiTrackAPI {
+object NodeAPI {
 	private lateinit var mHttpClient: OkHttpClient
 	private lateinit var mScarlet: Scarlet
 	private lateinit var mLifecycle: Lifecycle
 	private lateinit var mBackoffStrategy: BackoffStrategy
-	lateinit var api: LogiTrackAPIDefinition
+	lateinit var api: NodeAPIDefinition
 	var isConnected: Boolean = false
 
 	init {
@@ -53,11 +53,11 @@ object LogiTrackAPI {
 	}
 
 	fun isInitialized(): Boolean {
-		return  LogiTrackAPI::mHttpClient.isInitialized &&
-				LogiTrackAPI::mScarlet.isInitialized &&
-				LogiTrackAPI::mLifecycle.isInitialized &&
-				LogiTrackAPI::mBackoffStrategy.isInitialized &&
-				LogiTrackAPI::api.isInitialized
+		return  NodeAPI::mHttpClient.isInitialized &&
+				NodeAPI::mScarlet.isInitialized &&
+				NodeAPI::mLifecycle.isInitialized &&
+				NodeAPI::mBackoffStrategy.isInitialized &&
+				NodeAPI::api.isInitialized
 	}
 
 	private fun createHTTPClient() {

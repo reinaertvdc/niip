@@ -1,14 +1,101 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/frameLayout2"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Fragments.OBDFragment">
+    tools:context=".Fragments.OBDFragment" >
 
-    <!-- TODO: Update blank fragment layout -->
     <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="OBD Fragment" />
+        android:id="@+id/obd_speed_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="24dp"
+        android:text="Speed"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-</FrameLayout>
+    <com.shinelw.library.ColorArcProgressBar
+        android:id="@+id/obd_speed_progress"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="24dp"
+        app:back_width="10dp"
+        app:front_color1="@color/colorAccent"
+        app:front_width="10dp"
+        app:is_need_unit="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/obd_speed_label"
+        app:max_value="200"
+        app:string_unit="km/h"
+        app:total_engle="270" />
+
+    <TextView
+        android:id="@+id/obd_speed_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="120"
+        android:textColor="@color/colorAccent"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@+id/obd_speed_progress"
+        app:layout_constraintEnd_toEndOf="@+id/obd_speed_progress"
+        app:layout_constraintStart_toStartOf="@+id/obd_speed_progress"
+        app:layout_constraintTop_toTopOf="@+id/obd_speed_progress" />
+
+    <TextView
+        android:id="@+id/obd_rpm_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:text="RPM"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/obd_speed_progress" />
+
+    <com.shinelw.library.ColorArcProgressBar
+        android:id="@+id/obd_rpm_progress"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="24dp"
+        app:back_width="10dp"
+        app:front_color1="@color/colorAccent"
+        app:front_width="10dp"
+        app:is_need_unit="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/obd_rpm_label"
+        app:max_value="4000"
+        app:string_unit="rpm"
+        app:total_engle="270" />
+
+    <TextView
+        android:id="@+id/obd_rpm_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="2358"
+        android:textColor="@color/colorAccent"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@+id/obd_rpm_progress"
+        app:layout_constraintEnd_toEndOf="@+id/obd_rpm_progress"
+        app:layout_constraintStart_toStartOf="@+id/obd_rpm_progress"
+        app:layout_constraintTop_toTopOf="@+id/obd_rpm_progress" />
+</androidx.constraintlayout.widget.ConstraintLayout>

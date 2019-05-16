@@ -18,17 +18,23 @@ typealias Listener = (host: String, port: Int) -> Unit
 class ServiceScanner(private val serviceName: String, serviceType: String, context: Context) {
     private val rxBonjour: RxBonjour
     private val rxDiscovery: Observable<BonjourEvent>
-    private val mLock = java.lang.Object()
+    private var disposable: Disposable? = null
 
     init {
         rxBonjour = RxBonjour.Builder().platform(AndroidPlatform.create(context)).driver(JmDNSDriver.create()).create()
         rxDiscovery = rxBonjour.newDiscovery(serviceType)
+        rxDiscovery
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+
     }
 
     fun search(listener: Listener) {
-        val disposable: Disposable = rxDiscovery
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
+	    if(disposable != null) {
+			stop()
+	    }
+
+        disposable = rxDiscovery
             .subscribe {
                 event: BonjourEvent? -> when(event) {
                     is BonjourEvent.Added -> {
@@ -49,6 +55,9 @@ class ServiceScanner(private val serviceName: String, serviceType: String, conte
     }
 
     fun stop() {
-        rxDiscovery.unsubscribeOn(Schedulers.io())
+        if(disposable != null) {
+            disposable!!.dispose()
+            disposable = null
+        }
     }
 }

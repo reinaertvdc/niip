@@ -69,7 +69,7 @@
             app:layout_constraintTop_toBottomOf="@+id/wizard_login_wifi" />
 
         <ImageView
-            android:id="@+id/wizard_login_name_icon"
+            android:id="@+id/wizard_socket_ip_icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="24dp"
@@ -79,7 +79,7 @@
             app:layout_constraintTop_toBottomOf="@+id/login_subtitle" />
 
         <TextView
-            android:id="@+id/wizard_login_name"
+            android:id="@+id/wizard_socket_ip_text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
@@ -89,11 +89,11 @@
             android:textSize="18sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toStartOf="@+id/wizard_login_wifi_box"
-            app:layout_constraintStart_toEndOf="@+id/wizard_login_name_icon"
+            app:layout_constraintStart_toEndOf="@+id/wizard_socket_ip_icon"
             app:layout_constraintTop_toBottomOf="@+id/login_subtitle" />
 
         <CheckBox
-            android:id="@+id/wizard_login_name_box"
+            android:id="@+id/wizard_socket_ip_box"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="11dp"
@@ -104,17 +104,17 @@
             app:layout_constraintTop_toBottomOf="@+id/login_subtitle" />
 
         <ImageView
-            android:id="@+id/wizard_login_image_icon"
+            android:id="@+id/wizard_socket_connected_icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="24dp"
             android:layout_marginTop="8dp"
             android:src="@drawable/ic_wizard_image"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_login_name_icon" />
+            app:layout_constraintTop_toBottomOf="@+id/wizard_socket_ip_icon" />
 
         <TextView
-            android:id="@+id/wizard_login_image"
+            android:id="@+id/wizard_socket_connected_text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
@@ -125,18 +125,18 @@
             android:textSize="18sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toStartOf="@+id/wizard_login_wifi_box"
-            app:layout_constraintStart_toEndOf="@+id/wizard_login_image_icon"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_login_name" />
+            app:layout_constraintStart_toEndOf="@+id/wizard_socket_connected_icon"
+            app:layout_constraintTop_toBottomOf="@+id/wizard_socket_ip_text" />
 
         <CheckBox
-            android:id="@+id/wizard_login_image_box2"
+            android:id="@+id/wizard_socket_connected_box"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="24dp"
             android:buttonTint="@android:color/white"
             android:clickable="false"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_login_name_box" />
+            app:layout_constraintTop_toBottomOf="@+id/wizard_socket_ip_box" />
 
         <ImageView
             android:id="@+id/wizard_login_wifi_icon"
@@ -146,7 +146,7 @@
             android:layout_marginTop="8dp"
             android:src="@drawable/ic_wizard_wifi"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_login_image_icon" />
+            app:layout_constraintTop_toBottomOf="@+id/wizard_socket_connected_icon" />
 
         <TextView
             android:id="@+id/wizard_login_wifi"
@@ -162,7 +162,7 @@
             app:layout_constraintEnd_toStartOf="@+id/wizard_login_wifi_box"
             app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toEndOf="@+id/wizard_login_wifi_icon"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_login_image" />
+            app:layout_constraintTop_toBottomOf="@+id/wizard_socket_connected_text" />
 
         <CheckBox
             android:id="@+id/wizard_login_wifi_box"
@@ -172,7 +172,7 @@
             android:buttonTint="@android:color/white"
             android:clickable="false"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_login_image_box2" />
+            app:layout_constraintTop_toBottomOf="@+id/wizard_socket_connected_box" />
 
         <ProgressBar
             android:id="@+id/wizard_login_progress"
@@ -186,7 +186,8 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_login_wifi" />
+            app:layout_constraintTop_toBottomOf="@+id/wizard_login_wifi"
+            tools:visibility="gone" />
 
         <TextView
             android:id="@+id/wizard_login_progress_text"
@@ -199,7 +200,40 @@
             android:textColor="@android:color/white"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_login_progress" />
+            app:layout_constraintTop_toBottomOf="@+id/wizard_login_progress"
+            tools:visibility="gone" />
+
+        <Button
+            android:id="@+id/wizard_login_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="32dp"
+            android:backgroundTint="@color/colorWizardAccent"
+            android:text="@string/login_title"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/wizard_login_wifi" />
+
+        <Button
+            android:id="@+id/wizard_logout_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="32dp"
+            android:backgroundTint="@color/colorWizardAccent"
+            android:text="Logout"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/wizard_login_wifi" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
