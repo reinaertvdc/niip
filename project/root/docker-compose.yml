@@ -1,7 +1,7 @@
 version: '3.5'
 
 services:
-  app:
+  logitrack:
     build: 'services/app'
     depends_on:
       - 'db'
@@ -11,8 +11,9 @@ services:
       - 'env/db.env'
       - 'env/dbmgr.env'
       - 'env/postgres.env'
-    ports:
-      - '8080:8080/tcp'
+    networks:
+      default:
+      internal:
     restart: 'always'
     volumes:
       - './services/app/ui/build:/home/node/app/ui/build:ro'
@@ -22,6 +23,8 @@ services:
     env_file:
       - 'env/pgdata.env'
       - 'env/postgres.env'
+    networks:
+      internal:
     restart: 'always'
     volumes:
       - './services/db/pgdata:/var/lib/postgresql/data/pgdata'
@@ -29,4 +32,23 @@ services:
     build: 'services/dbmgr'
     depends_on:
       - 'db'
+    networks:
+      default:
+      internal:
     restart: 'always'
+  vernemq:
+    build: 'services/vernemq'
+    depends_on:
+      - 'db'
+    networks:
+      default:
+      internal:
+    ports:
+      - "1883:1883/tcp"
+      - "8883:8883/tcp"
+    restart: 'always'
+
+networks:
+    default:
+    internal:
+      internal: true

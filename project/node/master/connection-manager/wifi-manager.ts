@@ -1,3 +1,5 @@
+#!/usr/bin/env ts-node
+
 import {exec as execCB} from 'child_process';
 import {sleep} from './sleep-util';
 
@@ -219,6 +221,19 @@ export class WifiManager {
         await this.runNmcliCmd([], 'dev disconnect', true);
     }
 
+    public async hotspot(ssid: string = 'Hotspot', psk: string = 'password'): Promise<boolean> {
+        if (!(await this.init())) { return false; }
+        await this.delete('Hotspot');
+        let out: string = (await this.runNmcliCmd([], 'dev wifi hotspot con-name Hotspot ssid "' + ssid + '" band bg channel 1 password "' + psk + '"', true)).out;
+        if (out.includes('success')) {
+            return true;
+        }
+        else {
+            await this.delete('Hotspot');
+            return false;
+        }
+    }
+
 }
 
 
@@ -227,7 +242,11 @@ export class WifiManager {
 //     let wifi: WifiManager = new WifiManager();
 //     let ok: boolean = await wifi.init();
 //     console.log(wifi.iface);
+//     console.log(await wifi.hotspot());
+//     console.log(await wifi.scan(true));
+//     console.log(await wifi.disconnect());
 //     console.log(await wifi.scan(true));
 //     console.log(await wifi.connections());    
+//     console.log(await wifi.hotspot());
 // }
 // test();
