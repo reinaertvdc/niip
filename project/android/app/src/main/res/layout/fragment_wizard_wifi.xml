@@ -5,7 +5,7 @@
     android:id="@+id/frameLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Fragments.WizardLogin" >
+    tools:context=".Fragments.ConnectionWizard.WizardLogin" >
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="0dp"
@@ -68,6 +68,18 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/wizard_wifi_current_wifi_label" />
 
+        <TextView
+            android:id="@+id/wizard_wifi_current_wifi"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="4dp"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toEndOf="@+id/wizard_wifi_current_wifi_icon"
+            app:layout_constraintTop_toBottomOf="@+id/wizard_wifi_current_wifi_label" />
+
         <ImageView
             android:id="@+id/wizard_wifi_wanted_wifi_icon"
             android:layout_width="wrap_content"
@@ -79,25 +91,12 @@
             app:layout_constraintTop_toBottomOf="@+id/wizard_wifi_wanted_wifi_label" />
 
         <TextView
-            android:id="@+id/wizard_wifi_current_wifi"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginTop="4dp"
-            android:text="Random-SSID"
-            android:textColor="@android:color/white"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            app:layout_constraintStart_toEndOf="@+id/wizard_wifi_current_wifi_icon"
-            app:layout_constraintTop_toBottomOf="@+id/wizard_wifi_current_wifi_label" />
-
-        <TextView
             android:id="@+id/wizard_wifi_wanted_wifi"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_marginTop="4dp"
-            android:text="Random-SSID"
+            android:text="Unknown SSID"
             android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold"

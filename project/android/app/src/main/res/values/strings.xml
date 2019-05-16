@@ -9,7 +9,7 @@
 
     <string name="hotspot_title">Hotspot</string>
     <string name="login_title">Login</string>
-    <string name="websocket_title">WebSocket</string>
+    <string name="websocket_title">Device</string>
     <string name="wifi_title">Wi-Fi</string>
     <string name="title_activity_login">Sign in</string>
     <string name="prompt_email">Email</string>
@@ -20,4 +20,12 @@
     <string name="invalid_username">Not a valid username</string>
     <string name="invalid_password">Password must be >5 characters</string>
     <string name="login_failed">"Login failed"</string>
+	<string name="connection_login_token_key">login_token</string>
+    <string name="connection_login_user_id_key">login_user_id</string>
+	<string name="connection_user_first_name_key">user_first_name</string>
+    <string name="connection_user_last_name_key">user_last_name</string>
+    <string name="connection_user_user_image_key">user_image</string>
+    <string name="connection_wifi_ssid_key">connection_wifi_ssid</string>
+	<string name="connection_wifi_auto_connect_key">connection_wifi_auto_connect</string>
+	<string name="connection_wifi_psk_key">connection_wifi_psk</string>
 </resources>

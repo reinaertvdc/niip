@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as readline from "readline";
 import { OBD2Interface, PIDOutput } from "./obd2-interface";
+import { lookup } from "dns";
 
 interface TimestampedData {
 	pidOutput: PIDOutput;
@@ -168,7 +169,9 @@ class OBD2PlaybackInterface implements OBD2Interface {
 			}
 		}
 
-		return null;
+		console.log("[OBD2PlaybackInterface] End of data reached, starting from the beginning...")
+		this.startTime = time
+		return this.lookup(data)
 	}
 }
 

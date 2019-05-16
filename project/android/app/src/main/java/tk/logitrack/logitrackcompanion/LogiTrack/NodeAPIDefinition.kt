@@ -10,19 +10,7 @@ interface NodeAPIDefinition {
 	fun observeWebSocketEvent(): Flowable<WebSocket.Event>
 
 	@Receive
-	fun observeStartDataStream(): Flowable<StandardReply>
-
-	@Receive
-	fun observeStopDataStream(): Flowable<StandardReply>
-
-	@Receive
-	fun observeListData(): Flowable<StandardReply>
-
-	@Receive
-	fun observeGetData(): Flowable<StandardReply>
-
-	@Receive
-	fun observeDataStreamTick(): Flowable<StandardReply>
+	fun observeReply(): Flowable<StandardReply>
 
 	@Send
 	fun sendStartDataStream(startDataStream: StartDataStream)

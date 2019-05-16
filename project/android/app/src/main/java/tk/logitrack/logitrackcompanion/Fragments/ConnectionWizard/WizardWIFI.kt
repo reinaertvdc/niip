@@ -1,11 +1,7 @@
-package tk.logitrack.logitrackcompanion.Fragments
+package tk.logitrack.logitrackcompanion.Fragments.ConnectionWizard
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Uri
-import android.net.wifi.WifiManager
 import android.os.Bundle
-import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -13,12 +9,10 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.TextView
-import org.jetbrains.anko.find
-import tk.logitrack.logitrackcompanion.Data.NodeData
 
 import tk.logitrack.logitrackcompanion.R
 
-class WizardWIFI : Fragment() {
+class WizardWIFI : WizardFragment() {
 	private lateinit var parentContext: Context
 	private var listener: WizardFragmentListener? = null
 
@@ -26,10 +20,6 @@ class WizardWIFI : Fragment() {
 	private lateinit var wantedWifi: TextView
 	private lateinit var autoConnectBox: CheckBox
 	private lateinit var connectButton: Button
-
-	override fun onCreate(savedInstanceState: Bundle?) {
-		super.onCreate(savedInstanceState)
-	}
 
 	override fun onCreateView(
 		inflater: LayoutInflater, container: ViewGroup?,
@@ -47,6 +37,22 @@ class WizardWIFI : Fragment() {
 
 		autoConnectBox = view.findViewById(R.id.wizard_wifi_autoconnect)
 		connectButton = view.findViewById(R.id.wizard_wifi_connect)
+
+		connectButton.setOnClickListener {
+			if(listener != null) {
+				listener!!.onWiFiConnect()
+			}
+		}
+
+		autoConnectBox.setOnCheckedChangeListener { buttonView, isChecked ->
+			if(listener != null) {
+				listener!!.onAutoConnectChange(isChecked)
+			}
+		}
+
+		if(listener != null) {
+			listener!!.onWiFiReady()
+		}
 	}
 
 	override fun onAttach(context: Context?) {
@@ -62,30 +68,36 @@ class WizardWIFI : Fragment() {
 		listener = null
 	}
 
-	fun setListener(listener: WizardFragmentListener) {
+	override fun onFragmentActive() {
+
+	}
+
+	override fun onFragmentNonActive() {
+
+	}
+
+	override fun setListener(listener: WizardFragmentListener) {
 		this.listener = listener
 	}
 
 	fun setCurrentWiFi(ssid: String) {
-		this.currentWifi.text = ssid
+		if(::currentWifi.isInitialized)
+			this.currentWifi.text = ssid
 	}
 
 	fun setWantedWiFi(ssid: String) {
-		this.wantedWifi.text = ssid
+		if(::wantedWifi.isInitialized)
+			this.wantedWifi.text = ssid
+	}
+
+	fun setAutoConnect(value: Boolean) {
+		if(::autoConnectBox.isInitialized)
+			this.autoConnectBox.isChecked = value
 	}
 
 	companion object {
-		/**
-		 * Use this factory method to create a new instance of
-		 * this fragment using the provided parameters.
-		 *
-		 * @param param1 Parameter 1.
-		 * @param param2 Parameter 2.
-		 * @return A new instance of fragment WizardWIFI.
-		 */
-		// TODO: Rename and change types and number of parameters
 		@JvmStatic
-		fun newInstance(param1: String, param2: String) =
+		fun newInstance() =
 			WizardWIFI().apply {
 				arguments = Bundle().apply {
 

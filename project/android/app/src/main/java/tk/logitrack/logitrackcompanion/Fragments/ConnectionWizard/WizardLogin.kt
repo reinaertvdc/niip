@@ -1,4 +1,4 @@
-package tk.logitrack.logitrackcompanion.Fragments
+package tk.logitrack.logitrackcompanion.Fragments.ConnectionWizard
 
 import android.app.Activity
 import android.content.Context
@@ -26,7 +26,7 @@ import tk.logitrack.logitrackcompanion.R
  * create an instance of this fragment.
  *
  */
-class WizardLogin : Fragment() {
+class WizardLogin : WizardFragment() {
 	private lateinit var parentContext: Context
 	private lateinit var listener: WizardFragmentListener
 
@@ -38,13 +38,6 @@ class WizardLogin : Fragment() {
 	private lateinit var requestName: CheckBox
 	private lateinit var requestImage: CheckBox
 	private lateinit var requestNode: CheckBox
-
-	override fun onCreate(savedInstanceState: Bundle?) {
-		super.onCreate(savedInstanceState)
-		arguments?.let {
-
-		}
-	}
 
 	override fun onCreateView(
 		inflater: LayoutInflater, container: ViewGroup?,
@@ -72,10 +65,17 @@ class WizardLogin : Fragment() {
 				startActivityForResult(intent, 0)
 		}
 
-		loginButton.visibility = View.VISIBLE
-		logoutButton.visibility = View.GONE
-		progressBar.visibility = View.GONE
-		progressBarText.visibility = View.GONE
+		logoutButton.setOnClickListener {
+			if(::listener.isInitialized) {
+				listener.onLogout()
+			}
+		}
+
+		setLoginState(false)
+
+		if(::listener.isInitialized) {
+			listener.onLoginReady()
+		}
 	}
 
 	override fun onAttach(context: Context) {
@@ -101,17 +101,21 @@ class WizardLogin : Fragment() {
 		}
 	}
 
-	fun setListener(listener: WizardFragmentListener) {
+	override fun onFragmentActive() {
+
+	}
+
+	override fun onFragmentNonActive() {
+
+	}
+
+	override fun setListener(listener: WizardFragmentListener) {
 		this.listener = listener
 	}
 
 	fun onLogin(token: String, id: String) {
-		loginButton.visibility = View.GONE
-		progressBar.visibility = View.VISIBLE
-		progressBarText.visibility = View.VISIBLE
-
-		if(listener != null)
-			listener!!.onLogin(token, id)
+		if(::listener.isInitialized)
+			listener.onLogin(token, id)
 	}
 
 	fun onLoginFail() {
@@ -130,18 +134,34 @@ class WizardLogin : Fragment() {
 		this.requestNode.isChecked = value
 	}
 
+	fun setLoginState(loggedIn: Boolean) {
+		if(loggedIn && !hasUserData()) {
+			loginButton.visibility = View.GONE
+			progressBar.visibility = View.VISIBLE
+			progressBarText.visibility = View.VISIBLE
+			logoutButton.visibility = View.GONE
+		}
+		else if(loggedIn && hasUserData()) {
+			loginButton.visibility = View.GONE
+			progressBar.visibility = View.GONE
+			progressBarText.visibility = View.GONE
+			logoutButton.visibility = View.VISIBLE
+		}
+		else {
+			loginButton.visibility = View.VISIBLE
+			progressBar.visibility = View.GONE
+			progressBarText.visibility = View.GONE
+			logoutButton.visibility = View.GONE
+		}
+	}
+
+	fun hasUserData(): Boolean {
+		return ::requestName.isInitialized && requestImage.isChecked && requestName.isChecked && requestNode.isChecked
+	}
+
 	companion object {
-		/**
-		 * Use this factory method to create a new instance of
-		 * this fragment using the provided parameters.
-		 *
-		 * @param param1 Parameter 1.
-		 * @param param2 Parameter 2.
-		 * @return A new instance of fragment WizardLogin.
-		 */
-		// TODO: Rename and change types and number of parameters
 		@JvmStatic
-		fun newInstance(param1: String, param2: String) =
+		fun newInstance() =
 			WizardLogin().apply {
 				arguments = Bundle().apply {
 				}
