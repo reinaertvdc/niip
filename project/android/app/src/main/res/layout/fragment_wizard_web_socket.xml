@@ -5,7 +5,7 @@
     android:id="@+id/frameLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Fragments.WizardLogin" >
+    tools:context=".Fragments.ConnectionWizard.WizardLogin" >
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="0dp"
@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="24dp"
             android:layout_marginTop="16dp"
-            android:src="@drawable/ic_wizard_name"
+            android:src="@drawable/ic_wizard_device"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/websocket_title" />
 
@@ -73,7 +73,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="24dp"
             android:layout_marginTop="8dp"
-            android:src="@drawable/ic_wizard_image"
+            android:src="@drawable/ic_wizard_connection"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/wizard_socket_ip_icon" />
 

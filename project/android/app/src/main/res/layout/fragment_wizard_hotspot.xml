@@ -5,7 +5,7 @@
     android:id="@+id/frameLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Fragments.WizardLogin" >
+    tools:context=".Fragments.ConnectionWizard.WizardLogin" >
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="0dp"
@@ -32,5 +32,99 @@
             android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
+
+	    <TextView
+		    android:id="@+id/hotspot_subtitle"
+		    android:layout_width="0dp"
+		    android:layout_height="wrap_content"
+		    android:layout_marginStart="24dp"
+		    android:layout_marginTop="8dp"
+		    android:layout_marginEnd="24dp"
+		    android:text="The LogiTrack device has no connection to the internet and has requested a hotspot to be set-up."
+		    android:textColor="@android:color/white"
+		    android:textSize="18sp"
+		    app:layout_constraintEnd_toEndOf="parent"
+		    app:layout_constraintStart_toStartOf="parent"
+		    app:layout_constraintTop_toBottomOf="@+id/hotspot" />
+
+	    <TextView
+		    android:id="@+id/wizard_hotspot_label"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_marginTop="16dp"
+		    android:text="Hotspot Name"
+		    android:textColor="@android:color/white"
+		    android:textSize="12sp"
+		    app:layout_constraintStart_toStartOf="@+id/wizard_hotspot_text"
+		    app:layout_constraintTop_toBottomOf="@+id/hotspot_subtitle" />
+
+	    <ImageView
+		    android:id="@+id/wizard_hotspot_icon"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_marginStart="24dp"
+		    android:layout_marginTop="4dp"
+		    android:src="@drawable/ic_wizard_wifi"
+		    app:layout_constraintStart_toStartOf="parent"
+		    app:layout_constraintTop_toBottomOf="@+id/wizard_hotspot_label" />
+
+	    <TextView
+		    android:id="@+id/wizard_hotspot_text"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_marginStart="8dp"
+		    android:layout_marginTop="4dp"
+		    android:text="None"
+		    android:textColor="@android:color/white"
+		    android:textSize="18sp"
+		    android:textStyle="bold"
+		    app:layout_constraintStart_toEndOf="@+id/wizard_hotspot_icon"
+		    app:layout_constraintTop_toBottomOf="@+id/wizard_hotspot_label" />
+
+	    <ImageView
+		    android:id="@+id/wizard_hotspot_devices_icon"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_marginStart="24dp"
+		    android:layout_marginTop="4dp"
+		    android:src="@drawable/ic_wizard_device"
+		    app:layout_constraintStart_toStartOf="parent"
+		    app:layout_constraintTop_toBottomOf="@+id/wizard_hotspot_devices_label" />
+
+	    <TextView
+		    android:id="@+id/wizard_hotspot_devices_text"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_marginStart="8dp"
+		    android:layout_marginTop="4dp"
+		    android:text="None"
+		    android:textColor="@android:color/white"
+		    android:textSize="18sp"
+		    android:textStyle="bold"
+		    app:layout_constraintStart_toEndOf="@+id/wizard_hotspot_devices_icon"
+		    app:layout_constraintTop_toBottomOf="@+id/wizard_hotspot_devices_label" />
+
+	    <TextView
+		    android:id="@+id/wizard_hotspot_devices_label"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_marginTop="8dp"
+		    android:text="Connected Devices"
+		    android:textColor="@android:color/white"
+		    android:textSize="12sp"
+		    app:layout_constraintStart_toStartOf="@+id/wizard_hotspot_text"
+		    app:layout_constraintTop_toBottomOf="@+id/wizard_hotspot_text" />
+
+	    <Button
+		    android:id="@+id/hotspot_button"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_marginStart="8dp"
+		    android:layout_marginEnd="8dp"
+		    android:layout_marginBottom="32dp"
+		    android:text="Button"
+		    app:layout_constraintBottom_toBottomOf="parent"
+		    app:layout_constraintEnd_toEndOf="parent"
+		    app:layout_constraintStart_toStartOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

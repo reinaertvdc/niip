@@ -66,6 +66,11 @@ class APIServer {
             this.onMessage(connection, parsed);
         });
 
+        connection.on("close", () => {
+            console.log("[DataProvider] Socket closed, terminating.")
+            connection.terminate()
+        })
+
         // Add error callback
         connection.on("error", (error) => {
             console.log("[DataProvider] Error: " + error);

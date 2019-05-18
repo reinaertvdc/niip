@@ -67,7 +67,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-maps:16.1.0'
     implementation 'androidx.viewpager:viewpager:1.0.0'
 
-    implementation 'com.tbuonomo.andrui:viewpagerdotsindicator:3.0.3'
+    implementation 'com.afollestad:viewpagerdots:1.0.0'
 
     implementation 'com.squareup.retrofit2:retrofit:2.5.0'
     implementation "com.squareup.retrofit2:adapter-rxjava2:2.5.0"

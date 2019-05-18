@@ -1,16 +1,29 @@
-package tk.logitrack.logitrackcompanion.Fragments
+package tk.logitrack.logitrackcompanion.Fragments.ConnectionWizard
 
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentPagerAdapter
 
 class ConnectionWizardAdapter(fragmentManager: FragmentManager, listener: WizardFragmentListener): FragmentPagerAdapter(fragmentManager) {
-	private val hotspotFragment: WizardHotspot = WizardHotspot()
-	private val loginFragment: WizardLogin = WizardLogin()
-	private val webSocketFragment: WizardWebSocket = WizardWebSocket()
-	private val wifiFragment: WizardWIFI = WizardWIFI()
+	private lateinit var hotspotFragment: WizardHotspot
+	private lateinit var loginFragment: WizardLogin
+	private lateinit var webSocketFragment: WizardWebSocket
+	private lateinit var wifiFragment: WizardWIFI
 
 	init {
+		if(!::hotspotFragment.isInitialized) {
+			hotspotFragment = WizardHotspot()
+		}
+		if(!::loginFragment.isInitialized) {
+			loginFragment = WizardLogin()
+		}
+		if(!::webSocketFragment.isInitialized) {
+			webSocketFragment = WizardWebSocket()
+		}
+		if(!::wifiFragment.isInitialized) {
+			wifiFragment = WizardWIFI()
+		}
+
 		loginFragment.setListener(listener)
 		hotspotFragment.setListener(listener)
 		webSocketFragment.setListener(listener)

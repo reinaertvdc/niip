@@ -23,10 +23,6 @@ class ServiceScanner(private val serviceName: String, serviceType: String, conte
     init {
         rxBonjour = RxBonjour.Builder().platform(AndroidPlatform.create(context)).driver(JmDNSDriver.create()).create()
         rxDiscovery = rxBonjour.newDiscovery(serviceType)
-        rxDiscovery
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-
     }
 
     fun search(listener: Listener) {
@@ -35,6 +31,8 @@ class ServiceScanner(private val serviceName: String, serviceType: String, conte
 	    }
 
         disposable = rxDiscovery
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
             .subscribe {
                 event: BonjourEvent? -> when(event) {
                     is BonjourEvent.Added -> {

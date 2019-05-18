@@ -8,16 +8,39 @@ import com.tinder.scarlet.retry.BackoffStrategy
 import com.tinder.scarlet.retry.ExponentialWithJitterBackoffStrategy
 import com.tinder.scarlet.streamadapter.rxjava2.RxJava2StreamAdapterFactory
 import com.tinder.scarlet.websocket.okhttp.newWebSocketFactory
+import io.reactivex.Emitter
+import io.reactivex.Observable
 import okhttp3.OkHttpClient
+import tk.logitrack.logitrackcompanion.Helpers.KillSwitchLifecycle
 import java.util.concurrent.TimeUnit
 
 object NodeAPI {
+	private var mFirstConnect = true
+
 	private lateinit var mHttpClient: OkHttpClient
 	private lateinit var mScarlet: Scarlet
 	private lateinit var mLifecycle: Lifecycle
 	private lateinit var mBackoffStrategy: BackoffStrategy
+	private lateinit var mKillSwitch: KillSwitchLifecycle
 	lateinit var api: NodeAPIDefinition
-	var isConnected: Boolean = false
+
+	private lateinit var mWebSocketEmitter: Emitter<Event>
+	private val mObservable: Observable<Event> = Observable.create {
+		mWebSocketEmitter = it
+	}
+
+	private lateinit var mStartDataStreamEmitter: Emitter<StandardReply>
+	private lateinit var mStopDataStreamEmitter: Emitter<StandardReply>
+	private lateinit var mDataStreamTickEmitter: Emitter<StandardReply>
+	private val mStartDataStreamObservable: Observable<StandardReply> = Observable.create {
+		mStartDataStreamEmitter = it
+	}
+	private val mStopDataStreamObservable: Observable<StandardReply> = Observable.create {
+		mStopDataStreamEmitter = it
+	}
+	private val mDataStreamTickObservable: Observable<StandardReply> = Observable.create {
+		mDataStreamTickEmitter = it
+	}
 
 	init {
 		setBackoffStrategy(
@@ -29,19 +52,62 @@ object NodeAPI {
 	}
 
 	fun connect(host: String, port: Int) {
+		if(NodeAPI.isInitialized())
+			disconnect()
 		createHTTPClient()
 		createWebsocket(host, port)
 		createAPI()
 
-		val disposable = api.observeWebSocketEvent()
-			.subscribe {
-				event ->
-					if(event is WebSocket.Event.OnConnectionOpened<*>)
-						isConnected = true
-					else if(event is WebSocket.Event.OnConnectionClosed) {
-						isConnected = false
-					}
+		api.observeWebSocketEvent()
+			.subscribe { event ->
+				when(event) {
+					is WebSocket.Event.OnConnectionOpened<*> -> onConnectionOpened()
+					is WebSocket.Event.OnConnectionClosed -> mWebSocketEmitter.onNext(Event.Disconnected)
+					is WebSocket.Event.OnConnectionFailed -> mWebSocketEmitter.onNext(Event.Disconnected)
+				}
 			}
+
+		api.observeReply()
+			.subscribe {
+				when(it.type) {
+					"start-data-stream" -> onStartDataStream(it)
+					"stop-data-stream" -> onStopDataStream(it)
+					"data-stream-tick" -> onDataStreamTick(it)
+				}
+			}
+	}
+
+	fun disconnect() {
+		if(::mKillSwitch.isInitialized)
+			mKillSwitch.kill()
+	}
+
+	fun onConnectionOpened() {
+		if(mFirstConnect) {
+			mFirstConnect = false
+			mWebSocketEmitter.onNext(Event.Initialized)
+		}
+		else {
+			mWebSocketEmitter.onNext(Event.Connected)
+		}
+	}
+
+	fun onStartDataStream(reply: StandardReply) {
+		if(::mStartDataStreamEmitter.isInitialized) {
+			mStartDataStreamEmitter.onNext(reply)
+		}
+	}
+
+	fun onStopDataStream(reply: StandardReply) {
+		if(::mStopDataStreamEmitter.isInitialized) {
+			mStopDataStreamEmitter.onNext(reply)
+		}
+	}
+
+	fun onDataStreamTick(reply: StandardReply) {
+		if(::mDataStreamTickEmitter.isInitialized) {
+			mDataStreamTickEmitter.onNext(reply)
+		}
 	}
 
 	fun setBackoffStrategy(backoffStrategy: BackoffStrategy) {
@@ -69,9 +135,11 @@ object NodeAPI {
 	}
 
 	private fun createWebsocket(host: String, port: Int) {
+		mKillSwitch = KillSwitchLifecycle()
+
 		mScarlet = Scarlet.Builder()
 			.webSocketFactory(mHttpClient.newWebSocketFactory("ws://${host}:${port}"))
-			.lifecycle(mLifecycle)
+			.lifecycle(mLifecycle.combineWith(mKillSwitch))
 			.backoffStrategy(mBackoffStrategy)
 			.addMessageAdapterFactory(MoshiMessageAdapter.Factory())
 			.addStreamAdapterFactory(RxJava2StreamAdapterFactory())
@@ -80,5 +148,27 @@ object NodeAPI {
 
 	private fun createAPI() {
 		api = mScarlet.create()
+	}
+
+	fun observeWebSocket(): Observable<Event> {
+		return mObservable
+	}
+
+	fun observeStartDataStream(): Observable<StandardReply> {
+		return mStartDataStreamObservable
+	}
+
+	fun observeStopDataStream(): Observable<StandardReply> {
+		return mStopDataStreamObservable
+	}
+
+	fun observeDataStreamTick(): Observable<StandardReply> {
+		return mDataStreamTickObservable
+	}
+
+	enum class Event {
+		Initialized,
+		Connected,
+		Disconnected
 	}
 }
