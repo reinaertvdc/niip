@@ -237,6 +237,7 @@ export class MQTT extends EventEmitter {
                     that._client.removeListener('end', tmpcb);
                     that._client.removeListener('offline', tmpcb);
                     that._client.removeListener('close', tmpcb);
+                    that.disconnect();
                 }
                 resolve(false);
             }

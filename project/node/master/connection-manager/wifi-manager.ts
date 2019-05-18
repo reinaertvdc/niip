@@ -136,9 +136,9 @@ export class WifiManager {
     }
 
     public async setConnectionDns(conn: string): Promise<void> {
-        console.log('SETTING DNS');
-        console.log(this._dns);
-        console.log(this._dns6);
+        // console.log('SETTING DNS');
+        // console.log(this._dns);
+        // console.log(this._dns6);
         if (this._dns.length > 0) {
             let servers: string = this._dns[0];
             for (let i: number = 1; i < this._dns.length; i++) {
