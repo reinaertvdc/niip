@@ -1,9 +1,6 @@
-#!/usr/bin/env ts-node
-
-import {Client, connect, IClientOptions, QoS, ISubscriptionGrant} from 'mqtt';
+import {Client, connect, IClientOptions, QoS, ISubscriptionGrant, IPublishPacket, Packet} from 'mqtt';
 import { EventEmitter } from 'events';
 import {sleep} from './sleep-util';
-import { resolve } from 'dns';
 
 export {IClientOptions, QoS};
 
@@ -21,63 +18,77 @@ export class MQTT extends EventEmitter {
         this._options = options;
     }
 
-    public async connect(): Promise<boolean> {
-        this._connecting = true;
+    private async innerConnect(timeout: number = 30000): Promise<boolean> {
         const that = this;
-        try {
-            await new Promise<void>((resolve,reject)=>{
-                let errored = false;
-                const tmpcb = function() {
-                    errored = true;
+        return new Promise<boolean>((resolve,reject)=>{
+            if (that._client !== null || that._connecting) {
+                while (that._connecting) {
+                    sleep(50);
                 }
-                that._client = connect(this._url, this._options);
-                that._client.on('error', tmpcb);
-                that._client.on('end', tmpcb);
-                that._client.on('offline', tmpcb);
-                that._client.on('close', tmpcb);
-                const connectwait = function() {
-                    if (that._client === null) {
-                        reject();
-                    }
-                    else if (errored) {
-                        that._client.removeListener('error', tmpcb);
-                        that._client.removeListener('end', tmpcb);
-                        that._client.removeListener('offline', tmpcb);
-                        that._client.removeListener('close', tmpcb);
-                        that._client.end(true, ()=>{
-                            that._client = null;
-                            reject();
-                        });
-                    }
-                    else if (!that._client.connected) {
-                        setTimeout(() => {
-                            connectwait();
-                        }, 100);
-                    }
-                    else {
-                        that._client.removeListener('error', tmpcb);
-                        that._client.removeListener('end', tmpcb);
-                        that._client.removeListener('offline', tmpcb);
-                        that._client.removeListener('close', tmpcb);
-                        resolve();
-                    }
+                if (that._client !== null && that._client.connected) {
+                    resolve(true);
                 }
-                connectwait();
-            });
-        } catch (e) {
-            this._connecting = false;
-            return false;
-        }
-        this.emit('connect');
-        this._connecting = false;
-        for (let i: number = this._topics.length-1; i >= 0; i--) {
-            if (!await this.innerSubscribe(this._topics[i].topic, this._topics[i].qos)) {
-                this._topics.splice(i,1);
-            };
-        }
-        return true;
+                else {
+                    resolve(false);
+                }
+                return;
+            }
+            let errored: boolean = false;
+            that._connecting = true;
+            const tmpcb = function() {
+                errored = true;
+            }
+            let tmptimeout: NodeJS.Timeout = setTimeout(tmpcb, timeout);
+            that._client = connect(this._url, this._options);
+            that._client.on('error', tmpcb);
+            that._client.on('end', tmpcb);
+            that._client.on('offline', tmpcb);
+            that._client.on('close', tmpcb);
+            const connectwait = function() {
+                if (that._client === null) {
+                    clearTimeout(tmptimeout);
+                    that._connecting = false;
+                    resolve(false);
+                }
+                else if (errored) {
+                    clearTimeout(tmptimeout);
+                    that._client.removeListener('error', tmpcb);
+                    that._client.removeListener('end', tmpcb);
+                    that._client.removeListener('offline', tmpcb);
+                    that._client.removeListener('close', tmpcb);
+                    that._connecting = false
+                    that.disconnect().then((val)=>{
+                        resolve(false);
+                    });
+                }
+                else if (!that._client.connected) {
+                    setTimeout(() => {
+                        connectwait();
+                    }, 50);
+                }
+                else {
+                    clearTimeout(tmptimeout);
+                    that._client.removeListener('error', tmpcb);
+                    that._client.removeListener('end', tmpcb);
+                    that._client.removeListener('offline', tmpcb);
+                    that._client.removeListener('close', tmpcb);
+                    that._connecting = false;
+                    resolve(true);
+                }
+            }
+            connectwait();
+        });
     }
 
+    public async connect(): Promise<boolean> {
+        let connected: boolean = await this.innerConnect();
+        if (connected) {
+            this.emit('connect');
+        }
+        return connected;
+    }
+
+    //TODO: move part of actual disconnect call to seperate private function
     public async disconnect(): Promise<void> {
         while (this._connecting) {
             await sleep(50);
@@ -109,7 +120,9 @@ export class MQTT extends EventEmitter {
                 resolve();
                 return;
             }
+            let tmptimeout: NodeJS.Timeout = setTimeout(tmpcb, 30000);
             that._client.end(true, ()=>{
+                clearTimeout(tmptimeout);
                 if (!errored) {
                     if (that._client !== null) {
                         that._client.removeListener('error', tmpcb);
@@ -125,7 +138,7 @@ export class MQTT extends EventEmitter {
         });
     }
 
-    private async innerSubscribe(topic: string, qos: QoS = 0): Promise<boolean> {
+    private async innerSubscribe(topic: string, qos: QoS = 0, timeout: number = 30000): Promise<boolean> {
         const that = this;
         return new Promise<boolean>((resolve,reject)=>{
             if (that._client === null || that._connecting) {
@@ -147,7 +160,9 @@ export class MQTT extends EventEmitter {
             that._client.on('end', tmpcb);
             that._client.on('offline', tmpcb);
             that._client.on('close', tmpcb);
+            let tmptimeout: NodeJS.Timeout = setTimeout(tmpcb, timeout);
             that._client.subscribe(topic, {qos: qos}, (err: Error, granted: Array<ISubscriptionGrant>)=>{
+                clearTimeout(tmptimeout);
                 if (errored) { return; }
                 if (that._client !== null) {
                     that._client.removeListener('error', tmpcb);
@@ -160,7 +175,7 @@ export class MQTT extends EventEmitter {
                         if (granted[i].topic === topic) {
                             that.emit('subscribe');
                             resolve(true);
-                            break;
+                            return;
                         }
                     }
                     resolve(false);
@@ -188,23 +203,79 @@ export class MQTT extends EventEmitter {
         return true;
     }
 
-    public async publish(topic: string, message: string, qos: QoS): Promise<void> {
-        
-        //TODO
+    private async innerPublish(topic: string, message: string, qos: QoS = 0, retain: boolean = false, dup: boolean = false, timeout: number = 30000): Promise<boolean> {
+        const that = this;
+        return new Promise<boolean>((resolve,reject)=>{
+            if (that._client === null || that._connecting) {
+                resolve(false);
+                return;
+            }
+            let errored: boolean = false;
+            const tmpcb = function() {
+                errored = true;
+                if (that._client !== null) {
+                    that._client.removeListener('error', tmpcb);
+                    that._client.removeListener('end', tmpcb);
+                    that._client.removeListener('offline', tmpcb);
+                    that._client.removeListener('close', tmpcb);
+                }
+                resolve(false);
+            }
+            that._client.on('error', tmpcb);
+            that._client.on('end', tmpcb);
+            that._client.on('offline', tmpcb);
+            that._client.on('close', tmpcb);
+            let tmptimeout: NodeJS.Timeout = setTimeout(tmpcb, timeout);
+            that._client.publish(topic, message, {qos: qos, retain: retain, dup: dup}, (error: Error|undefined, packet: Packet|undefined)=>{
+                clearTimeout(tmptimeout);
+                if (errored) { return; }
+                if (that._client !== null) {
+                    that._client.removeListener('error', tmpcb);
+                    that._client.removeListener('end', tmpcb);
+                    that._client.removeListener('offline', tmpcb);
+                    that._client.removeListener('close', tmpcb);
+                }
+                if (error === null || error === undefined) {
+                    resolve(true);
+                }
+                else {
+                    resolve(false);
+                }
+            });
+        });
+    }
+
+    public async publish(topic: string, message: string, qos: QoS, retain: boolean = false, dup: boolean = false): Promise<boolean> {
+        if (this._client === null) {
+            if (!await this.connect()) {
+                return false;
+            }
+        }
+        if (this._client === null || this._connecting) {
+            return false;
+        }
+        return await this.innerPublish(topic, message, qos, retain, dup, 30000);
+
     }
 
 }
 
-async function test(): Promise<void> {
-    let c: MQTT = new MQTT('mqtts://mqtt.logitrack.tk', {
-        username: 'cwout',
-        clientId: 'cwout',
-        password: 'test123',
-        clean: false,
-    });
-    console.log('CONNECT');
-    console.log(await c.connect());
-    console.log(await c.subscribe('#'));
-    console.log(await c.disconnect());
-}
-test();
+
+// EXAMPLE CODE BELOW
+// async function test(): Promise<void> {
+//     let c: MQTT = new MQTT('mqtts://mqtt.logitrack.tk', {
+//         username: 'cwout',
+//         clientId: 'cwout',
+//         password: 'test123',
+//         clean: false,
+//     });
+//     console.log('CONNECT');
+//     console.log(await c.connect());
+//     console.log('PUBLISH');
+//     console.log(await c.publish('0/data', 'test123456', 2, true));
+//     console.log('SUBSCRIBE');
+//     console.log(await c.subscribe('#'));
+//     console.log('DISCONNECT');
+//     console.log(await c.disconnect());
+// }
+// test();
