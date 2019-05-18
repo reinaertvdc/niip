@@ -2,11 +2,12 @@
 
 import * as CM from './connection-manager';
 import * as BSON from 'bson';
-import {Client, Pool, ResultBuilder} from 'pg';
-import {Client as MClient, connect as Mconnect, Packet} from 'mqtt';
+import { Pool } from 'pg';
+import { MQTT } from './mqtt-helper';
+// import {Client as MClient, connect as Mconnect, Packet} from 'mqtt';
 import { sleep } from './sleep-util';
 
-const uuidv4 = require('uuid/v4');
+import uuidv4 from 'uuid/v4';
 
 
 const PG_HOST = '127.0.0.1';
@@ -85,8 +86,9 @@ export class DataRouter {
     private _buffer: DataBuffer = new DataBuffer(PG_USER, PG_PASSWORD, PG_DATABASE, PG_HOST, PG_PORT);
     private _cm: CM.ConnectionManager;
 
-    private _client: MClient|null = null;
-    private _clientErrored: boolean = false;
+    private _mqtt: MQTT;
+    // private _client: MClient|null = null;
+    // private _clientErrored: boolean = false;
 
     private _connectionAvailable: boolean = false;
     private _connectionChanged: boolean = false;
@@ -106,73 +108,77 @@ export class DataRouter {
             this._cm = new CM.ConnectionManager(arg);
         }
         this._cm.on('connect', this.cmConnectCallback.bind(this));
+        this._mqtt = new MQTT('mqtts://mqtt.logitrack.tk', {
+            username: 'cwout',
+            clientId: 'cwout',
+            password: 'test123',
+            clean: false,
+        });
         this.sendLoop();
-        // this.sendLoopWatchdog();
     }
 
     private cmConnectCallback(ap:CM.AP|null,net:CM.Network|null,newConnection:boolean): void {
+        // if (ap !== null && net !== null) {
+        //     if (!this._connectionAvailable || newConnection) {
+        //         this._connectionChanged = true;
+        //     }
+        //     this._connectionAvailable = true;
+        //     if (ap.type === CM.APtype.WIFI || ap.type === CM.APtype.HOTSPOT) {
+        //         this._connectionCanUseMqtt = true;
+        //     }
+        //     else {
+        //         this._connectionCanUseMqtt = false;
+        //     }
+        // }
+        // else {
+        //     if (this._connectionAvailable) {
+        //         this._connectionChanged = true;
+        //     }
+        //     this._connectionAvailable = false;
+        //     this._connectionCanUseMqtt = false;
+        // }
 
-        if (ap !== null && net !== null) {
-            if (!this._connectionAvailable || newConnection) {
-                this._connectionChanged = true;
-            }
-            this._connectionAvailable = true;
-            if (ap.type === CM.APtype.WIFI || ap.type === CM.APtype.HOTSPOT) {
-                this._connectionCanUseMqtt = true;
-            }
-            else {
-                this._connectionCanUseMqtt = false;
-            }
-        }
-        else {
-            if (this._connectionAvailable) {
-                this._connectionChanged = true;
-            }
-            this._connectionAvailable = false;
-            this._connectionCanUseMqtt = false;
-        }
-
-        if (this._client !== null) {
-            if (!this._connectionAvailable || this._connectionChanged) {
-                this._client.end(true);
-                this._client = null;
-            }
-        }
-        //TODO: change username/password
-        if (this._client === null && this._connectionAvailable && this._connectionCanUseMqtt) {
-            this._client = Mconnect('mqtts://mqtt.logitrack.tk', {
-                username: 'cwout',
-                clientId: 'cwout',
-                password: 'test123',
-                clean: false,
-            });
-            let that: DataRouter = this;
-            this._client.on('error', (error: Error)=>{
-                that._clientErrored = true;
-                try {
-                    if (that._client !== null) {
-                        that._client.end(true);
-                    }
-                } catch (e) { console.error(e); }
-                that._client = null;
-                console.error(error);
-            });
-            // this._client.on('close', () => {
-            //     for (let i: number = 0; i < 20; i++) {
-            //         console.log('CLOSE');
-            //     }
-            // });
-            // this._client.on('offline', () => {
-            //     for (let i: number = 0; i < 20; i++) {
-            //         console.log('OFFLINE');
-            //     }
-            // });
-            // this._client.on('end', () => {
-            //     for (let i: number = 0; i < 20; i++) {
-            //         console.log('END');
-            //     }
-            // });
-        }
+        // if (this._client !== null) {
+        //     if (!this._connectionAvailable || this._connectionChanged) {
+        //         this._client.end(true);
+        //         this._client = null;
+        //     }
+        // }
+        // //TODO: change username/password
+        // if (this._client === null && this._connectionAvailable && this._connectionCanUseMqtt) {
+        //     this._client = Mconnect('mqtts://mqtt.logitrack.tk', {
+        //         username: 'cwout',
+        //         clientId: 'cwout',
+        //         password: 'test123',
+        //         clean: false,
+        //     });
+        //     let that: DataRouter = this;
+        //     this._client.on('error', (error: Error)=>{
+        //         that._clientErrored = true;
+        //         try {
+        //             if (that._client !== null) {
+        //                 that._client.end(true);
+        //             }
+        //         } catch (e) { console.error(e); }
+        //         that._client = null;
+        //         console.error(error);
+        //     });
+        //     // this._client.on('close', () => {
+        //     //     for (let i: number = 0; i < 20; i++) {
+        //     //         console.log('CLOSE');
+        //     //     }
+        //     // });
+        //     // this._client.on('offline', () => {
+        //     //     for (let i: number = 0; i < 20; i++) {
+        //     //         console.log('OFFLINE');
+        //     //     }
+        //     // });
+        //     // this._client.on('end', () => {
+        //     //     for (let i: number = 0; i < 20; i++) {
+        //     //         console.log('END');
+        //     //     }
+        //     // });
+        // }
 
     }
 
@@ -185,46 +191,49 @@ export class DataRouter {
         return inserted;
     }
 
-    private async sleep(millis: number): Promise<void> {
-        return new Promise<void>(resolve => {
-            setTimeout(()=>{
-                resolve();
-            }, millis);
-        });
-    }
+    // private async sleep(millis: number): Promise<void> {
+    //     return new Promise<void>(resolve => {
+    //         setTimeout(()=>{
+    //             resolve();
+    //         }, millis);
+    //     });
+    // }
 
-    private _sendLoopActive: boolean = false;
+    // private _sendLoopActive: boolean = false;
 
-    private async sendLoopWatchdog(): Promise<void> {
-        await sleep(30000);
-        console.log('send loop watchdog');
-        if (!this._sendLoopActive) {
-            console.log('restarting');
-            try {
-                this.sendLoop();
-            } catch (e) { console.log(e); }
-        }
-        else {
-            this._sendLoopActive = false;
-        }
-    }
+    // private async sendLoopWatchdog(): Promise<void> {
+    //     await sleep(30000);
+    //     console.log('send loop watchdog');
+    //     if (!this._sendLoopActive) {
+    //         console.log('restarting');
+    //         try {
+    //             this.sendLoop();
+    //         } catch (e) { console.log(e); }
+    //     }
+    //     else {
+    //         this._sendLoopActive = false;
+    //     }
+    // }
 
     private async sendLoop(): Promise<void> {
         while (true) {
-            this._sendLoopActive = true;
-            await this.sleep(0);
+            // this._sendLoopActive = true;
+            await sleep(0);
+            console.log('a');
             if (this._cm.lastConnectedAP === null || this._cm.lastConnectedNetwork === null) {
                 console.log('Data Router - No connection detected - pausing')
-                await this.sleep(5000);
-                console.log('Data Router - No connection detected - resuming')
+                await sleep(5000);
+                console.log('Data Router - resuming')
                 continue;
             }
+            console.log('b');
             let minU: DataUrgency = DataUrgency.WHENEVER;
             let needsMqttClient: boolean = true;
+            let needsLoraClient: boolean = false;
             if (this._cm.lastConnectedAP.type === CM.APtype.UNDEFINED) {
                 console.log('Data Router - Current connection type unknown - pausing')
-                await this.sleep(5000);
-                console.log('Data Router - Current connection type unknown - resuming')
+                await sleep(5000);
+                console.log('Data Router - resuming')
                 continue;
             }
             else if (this._cm.lastConnectedAP.type === CM.APtype.WIFI) {
@@ -241,27 +250,31 @@ export class DataRouter {
             else if (this._cm.lastConnectedAP.type === CM.APtype.LORA) {
                 minU = DataUrgency.ASAP;
                 needsMqttClient = false;
+                needsLoraClient = true;
             }
+            console.log('c');
             let data: Array<Data> = await this._buffer.peek(minU, DataUrgency.ASAP, 5000);
+            console.log(data.length);
             if (data.length === 0) {
                 console.log('Data Router - No data to send on current connection - pausing')
-                await this.sleep(1000);
-                console.log('Data Router - No data to send on current connection - resuming')
+                await sleep(5000);
+                console.log('Data Router - resuming')
                 continue;
             }
+            console.log('d');
             if (needsMqttClient) {
-                if (this._client === null) {
-                    console.log('Data Router - No MQTT client available - pausing')
-                    await this.sleep(1000);
-                    console.log('Data Router - No MQTT client available - resuming')
+                if (!await this._mqtt.connect()) {
+                    console.log('Data Router - MQTT client no connected - pausing')
+                    await sleep(5000);
+                    console.log('Data Router - resuming')
                     continue;
                 }
-                else if (!this._client.connected) {
-                    console.log('Data Router - MQTT client not connected yet - pausing')
-                    await this.sleep(1000);
-                    console.log('Data Router - MQTT client not connected yet - resuming')
-                    continue;
-                }
+            }
+            console.log('e');
+            if (needsLoraClient) {
+                console.log('Data Router - LORA client required on connection - Not implemented yet');
+                continue;
+                //TODO: implement lora client
             }
             console.log('Data Router - Sending');
             console.log('5');
@@ -275,50 +288,21 @@ export class DataRouter {
             console.log('1');
             await sleep(1000);
             console.log('0');
-            for (let i: number = 0; i < data.length && !this._clientErrored; i++) {
-                if (data[i] === null) { continue; }
-                if (needsMqttClient && this._client !== null && this._client.connected) {
-                    console.log('A');
-                    try {
-                        console.log('SENDING ' + i);
-                        await new Promise<void>((resolve,reject)=>{
-                            if (this._client === null || !this._client.connected) {
-                                reject();
-                                return;
-                            }
-                            let that = this;
-                            const tmpcb = function() : void {
-                                that._clientErrored = true;
-                                if (that._client !== null) {
-                                    that._client.removeListener('close', tmpcb);
-                                }
-                                for (let i: number = 0; i < 20; i++) {
-                                    console.log('CLOSE');
-                                }
-                                resolve();
-                            }
-                            this._client.on('close', tmpcb);
-                            this._client.publish('0/data', data[i].bson, (error: Error|undefined)=>{
-                                if (this._client !== null) {
-                                    this._client.removeListener('close', tmpcb);
-                                }
-                                resolve();
-                            });
-                        });
-                        // await this._client.publish('0/data', data[i].bson);
-                        let id: number|null = data[i].id;
-                        if (id !== null && !this._clientErrored) {
-                            this._buffer.remove([id]);
-                            console.log('DELETING ' + i);
-                        }
-                    } catch (e) {
-                        console.log('C');
-                        console.log(e);
+            let dataArray: Array<Buffer> = [];
+            for (let i: number = 0; i < data.length; i++) {
+                dataArray.push(data[i].bson);
+            }
+            console.log('SENDING [ 0 , ' + (data.length -1) + ' ]');
+            let sendResult: Array<boolean> = await this._mqtt.publishAll('0/data', dataArray, 1);
+            for (let i: number = 0; i < data.length && i < sendResult.length; i++) {
+                if (sendResult[i] === true) {
+                    console.log('DELETING ' + i);
+                    let id: number|null = data[i].id;
+                    if (id !== null) {
+                        this._buffer.remove([id]);
                     }
-                    console.log('B');
                 }
             }
-            this._clientErrored = false;
         }
     }
 
@@ -407,11 +391,10 @@ dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'telenet-A837A-extended'
 dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'XT1635-02 4458', 'shagra2018', 0, 5000));
 
 setTimeout(()=>{
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
-    for (let i: number = 0; i < 99996; i++) {
+    for (let i: number = 0; i < 10000; i++) {
+        dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
+    }
+    for (let i: number = 0; i < 10000; i++) {
         dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
     }
 }, 5000);

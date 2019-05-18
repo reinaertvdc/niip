@@ -16,6 +16,17 @@ export class MQTT extends EventEmitter {
         super();
         this._url = url;
         this._options = options;
+        this.setMaxListeners(0);
+    }
+
+    private clientListener(): void {
+        if (this._client !== null) {
+            this._client.removeListener('error', this.clientListener);
+            this._client.removeListener('end', this.clientListener);
+            this._client.removeListener('offline', this.clientListener);
+            this._client.removeListener('close', this.clientListener);
+            this.disconnect();
+        }
     }
 
     private async innerConnect(timeout: number = 30000): Promise<boolean> {
@@ -72,6 +83,10 @@ export class MQTT extends EventEmitter {
                     that._client.removeListener('end', tmpcb);
                     that._client.removeListener('offline', tmpcb);
                     that._client.removeListener('close', tmpcb);
+                    that._client.on('error', that.clientListener);
+                    that._client.on('end', that.clientListener);
+                    that._client.on('offline', that.clientListener);
+                    that._client.on('close', that.clientListener);
                     that._connecting = false;
                     resolve(true);
                 }
@@ -110,6 +125,10 @@ export class MQTT extends EventEmitter {
                 resolve();
             }
             if (that._client !== null) {
+                that._client.removeListener('error', that.clientListener);
+                that._client.removeListener('end', that.clientListener);
+                that._client.removeListener('offline', that.clientListener);
+                that._client.removeListener('close', that.clientListener);
                 that._client.on('error', tmpcb);
                 that._client.on('end', tmpcb);
                 that._client.on('offline', tmpcb);
@@ -203,7 +222,7 @@ export class MQTT extends EventEmitter {
         return true;
     }
 
-    private async innerPublish(topic: string, message: string, qos: QoS = 0, retain: boolean = false, dup: boolean = false, timeout: number = 30000): Promise<boolean> {
+    private async innerPublish(topic: string, message: string|Buffer, qos: QoS = 0, retain: boolean = false, dup: boolean = false, timeout: number = 30000): Promise<boolean> {
         const that = this;
         return new Promise<boolean>((resolve,reject)=>{
             if (that._client === null || that._connecting) {
@@ -245,7 +264,7 @@ export class MQTT extends EventEmitter {
         });
     }
 
-    public async publish(topic: string, message: string, qos: QoS, retain: boolean = false, dup: boolean = false): Promise<boolean> {
+    public async publish(topic: string, message: string|Buffer, qos: QoS, retain: boolean = false, dup: boolean = false): Promise<boolean> {
         if (this._client === null) {
             if (!await this.connect()) {
                 return false;
@@ -256,6 +275,14 @@ export class MQTT extends EventEmitter {
         }
         return await this.innerPublish(topic, message, qos, retain, dup, 30000);
 
+    }
+
+    public async publishAll(topic: string, messages: Array<string|Buffer>, qos: QoS, retain: boolean = false, dup: boolean = false): Promise<Array<boolean>> {
+        let p: Array<Promise<boolean>> = [];
+        for (let i: number = 0; i < messages.length; i++) {
+            p.push(this.publish(topic, messages[i], qos, retain, dup));
+        }
+        return await Promise.all(p);
     }
 
 }
