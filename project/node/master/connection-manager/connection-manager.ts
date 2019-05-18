@@ -61,7 +61,9 @@ export class AP {
 
 export class ConnectionManager extends EventEmitter {
 
-    private _wifi: WifiManager;
+    private _wifi: WifiManager|null;
+    private _htsp: WifiManager|null;
+    private _htspIp: string|null;
     private _interval: number;
     private _scanWait: number;
     private _minQ: number = 40;
@@ -69,12 +71,24 @@ export class ConnectionManager extends EventEmitter {
     private _ap: AP|null = null;
     private _net: Network|null = null;
 
-    public constructor(wifiIface: string|number|null = null, wifiCheckInterval: number = 10000, scanWaitTime: number = 5000, minQuality: number = 25) {
+    public constructor(wifiIfacePrimary: string|number|null = 0, wifiIfaceHotspot: string|number|null = 1, hotspotIp: string|null = null, wifiCheckInterval: number = 10000, scanWaitTime: number = 5000, minQuality: number = 25) {
         super();
         this._interval = wifiCheckInterval;
         this._scanWait = scanWaitTime;
         this._minQ = minQuality;
-        this._wifi = new WifiManager(wifiIface);
+        if (wifiIfacePrimary === null) {
+            this._wifi = null;
+        }
+        else {
+            this._wifi = new WifiManager(wifiIfacePrimary, ['8.8.8.8', '8.8.4.4', '1.1.1.1'], ['2001:4860:4860::8888', '2001:4860:4860::8844']);
+        }
+        if (wifiIfaceHotspot === null) {
+            this._htsp = null;
+        }
+        else {
+            this._htsp = new WifiManager(wifiIfaceHotspot, ['8.8.8.8', '8.8.4.4', '1.1.1.1'], ['2001:4860:4860::8888', '2001:4860:4860::8844']);
+        }
+        this._htspIp = hotspotIp;
         this.connectLoop();
     }
 
@@ -163,140 +177,169 @@ export class ConnectionManager extends EventEmitter {
                 await sleep(this._interval);
             }
 
-            console.log('Connection Manager - Scanning');
-            let bestNets = this.parseScanResults(await this._wifi.scan(true, this._scanWait));
+            if (this._wifi !== null) {
 
-            if ((bestNets.wifi.ap === null || bestNets.wifi.net === null) && (bestNets.hotspot.ap === null || bestNets.hotspot.net === null)) {
-                console.log('Connection Manager - Requesting mobile hotspot');
-                console.log('Connection Manager - WARNING - not implemented yet');
-                //TODO: request hotspot (and wait)
-                bestNets = this.parseScanResults(await this._wifi.scan(true, this._scanWait));
-                if (bestNets.hotspot.ap === null || bestNets.hotspot.net === null) {
-                    console.log('Connection Manager - Could not request mobile hostpot');
+                console.log('Connection Manager - Scanning');
+                let bestNets = this.parseScanResults(await this._wifi.scan(true, this._scanWait));
+
+                if ((bestNets.wifi.ap === null || bestNets.wifi.net === null) && (bestNets.hotspot.ap === null || bestNets.hotspot.net === null)) {
+                    console.log('Connection Manager - Requesting mobile hotspot');
+                    console.log('Connection Manager - WARNING - not implemented yet');
+                    //TODO: request hotspot (and wait)
+                    bestNets = this.parseScanResults(await this._wifi.scan(true, this._scanWait));
+                    if (bestNets.hotspot.ap === null || bestNets.hotspot.net === null) {
+                        console.log('Connection Manager - Could not request mobile hostpot');
+                    }
+                    else {
+                        console.log('Connection Manager - Mobile hotspot request succesful');
+                    }
+                }
+
+                if (bestNets.wifi.ap !== null && bestNets.wifi.net !== null) {
+                    console.log('Connection Manager - Best wifi: ' + bestNets.wifi.ap.ssid);
                 }
                 else {
-                    console.log('Connection Manager - Mobile hotspot request succesful');
+                    console.log('Connection Manager - Best wifi: /');
                 }
-            }
+                if (bestNets.hotspot.ap !== null && bestNets.hotspot.net !== null) {
+                    console.log('Connection Manager - Best htsp: ' + bestNets.hotspot.ap.ssid);
+                }
+                else {
+                    console.log('Connection Manager - Best htsp: /');
+                }
+                if (bestNets.lora.ap !== null && bestNets.lora.net !== null) {
+                    console.log('Connection Manager - Best lora: ' + bestNets.lora.ap.ssid);
+                }
+                else {
+                    console.log('Connection Manager - Best lora: /');
+                }
+                
+                let best: {ap: AP|null, net: Network|null} = {ap: null, net: null};
+                if (bestNets.wifi.ap !== null && bestNets.wifi.net !== null) {
+                    best = bestNets.wifi;
+                }
+                else if (bestNets.hotspot.ap !== null && bestNets.hotspot.net !== null) {
+                    best = bestNets.hotspot;
+                }
+                else if (bestNets.lora.ap !== null && bestNets.lora.net !== null) {
+                    best = bestNets.lora;
+                }
 
-            if (bestNets.wifi.ap !== null && bestNets.wifi.net !== null) {
-                console.log('Connection Manager - Best wifi: ' + bestNets.wifi.ap.ssid);
-            }
-            else {
-                console.log('Connection Manager - Best wifi: /');
-            }
-            if (bestNets.hotspot.ap !== null && bestNets.hotspot.net !== null) {
-                console.log('Connection Manager - Best htsp: ' + bestNets.hotspot.ap.ssid);
-            }
-            else {
-                console.log('Connection Manager - Best htsp: /');
-            }
-            if (bestNets.lora.ap !== null && bestNets.lora.net !== null) {
-                console.log('Connection Manager - Best lora: ' + bestNets.lora.ap.ssid);
-            }
-            else {
-                console.log('Connection Manager - Best lora: /');
-            }
-            
-            let best: {ap: AP|null, net: Network|null} = {ap: null, net: null};
-            if (bestNets.wifi.ap !== null && bestNets.wifi.net !== null) {
-                best = bestNets.wifi;
-            }
-            else if (bestNets.hotspot.ap !== null && bestNets.hotspot.net !== null) {
-                best = bestNets.hotspot;
-            }
-            else if (bestNets.lora.ap !== null && bestNets.lora.net !== null) {
-                best = bestNets.lora;
-            }
-
-            if (best.net === null || best.ap === null) {
-                console.log('Connection Manager - No known networks found');
-                this.onConnect(null, null, false);
-                continue;
-            }
-
-            console.log('Connection Manager - Getting current connections');
-            let conns: Array<Network> = await this._wifi.connections();
-
-            if (conns.length === 0) {
-                console.log('Connection Manager - Connecting to ' + best.ap.ssid);
-                this.onConnect(null, null, false);
-                if (best.ap.ssid === null || best.ap.psk === null || !(await this._wifi.connect(best.ap.ssid, best.ap.psk))) {
-                    console.log('Connection Manager - Could not connect to ' + best.ap.ssid);
+                if (best.net === null || best.ap === null) {
+                    console.log('Connection Manager - No known networks found');
+                    this.onConnect(null, null, false);
                     continue;
                 }
-                console.log('Connection Manager - Connected to ' + best.ap.ssid);
-                this.onConnect(best.ap, best.net, true);
-                continue;
-            }
 
-            if (conns.length > 1) {
-                console.log('Connection Manager - WARNING - More than 1 current connection on interface!');
-            }
+                console.log('Connection Manager - Getting current connections');
+                let conns: Array<Network> = await this._wifi.connections();
 
-            let conn: {ap: AP|null, net:Network} = {ap: null, net: conns[0]};
-            if (conn.net.ssid === best.ap.ssid && (conn.net.bssid === best.net.bssid || conn.net.quality+5 >= best.net.quality)) {
-                console.log('Connection Manager - Connected to best network already');
-                this.onConnect(best.ap, best.net, false);
-                continue;
-            }
-            for (let i = 0; i < this._aps.length; i++) {
-                if (conn.net.ssid === this._aps[i].ssid) {
-                    conn.ap = this._aps[i];
-                    break;
+                if (conns.length === 0) {
+                    console.log('Connection Manager - Connecting to ' + best.ap.ssid);
+                    this.onConnect(null, null, false);
+                    if (best.ap.ssid === null || best.ap.psk === null || !(await this._wifi.connect(best.ap.ssid, best.ap.psk))) {
+                        console.log('Connection Manager - Could not connect to ' + best.ap.ssid);
+                        continue;
+                    }
+                    console.log('Connection Manager - Connected to ' + best.ap.ssid);
+                    this.onConnect(best.ap, best.net, true);
+                    continue;
                 }
-            }
-            let isBetter = false;
-            if (conn.ap === null) {
-                isBetter = true;
-            }
-            else if (best.ap.type === APtype.WIFI && conn.ap.type !== APtype.WIFI) {
-                isBetter = true;
-            }
-            else if (best.ap.type === APtype.HOTSPOT && conn.ap.type !== APtype.WIFI && conn.ap.type !== APtype.HOTSPOT) {
-                isBetter = true;
-            }
-            else if (best.ap.type === conn.ap.type) {
-                if (best.ap.cost === 0 && conn.ap.cost > 0) {
+
+                if (conns.length > 1) {
+                    console.log('Connection Manager - WARNING - More than 1 current connection on interface!');
+                }
+
+                let conn: {ap: AP|null, net:Network} = {ap: null, net: conns[0]};
+                if (conn.net.ssid === best.ap.ssid && (conn.net.bssid === best.net.bssid || conn.net.quality+5 >= best.net.quality)) {
+                    console.log('Connection Manager - Connected to best network already');
+                    this.onConnect(best.ap, best.net, false);
+                    continue;
+                }
+                for (let i = 0; i < this._aps.length; i++) {
+                    if (conn.net.ssid === this._aps[i].ssid) {
+                        conn.ap = this._aps[i];
+                        break;
+                    }
+                }
+                let isBetter = false;
+                if (conn.ap === null) {
                     isBetter = true;
                 }
-                else { //TODO: add if clause to check if cost is not going up too much
-                    let qd = best.net.quality - conn.net.quality;
-                    let sf = best.ap.speed / conn.ap.speed;
-                    if (qd > 0) {
-                        if (conn.net.quality < this._minQ) {
-                            isBetter = true;
+                else if (best.ap.type === APtype.WIFI && conn.ap.type !== APtype.WIFI) {
+                    isBetter = true;
+                }
+                else if (best.ap.type === APtype.HOTSPOT && conn.ap.type !== APtype.WIFI && conn.ap.type !== APtype.HOTSPOT) {
+                    isBetter = true;
+                }
+                else if (best.ap.type === conn.ap.type) {
+                    if (best.ap.cost === 0 && conn.ap.cost > 0) {
+                        isBetter = true;
+                    }
+                    else { //TODO: add if clause to check if cost is not going up too much
+                        let qd = best.net.quality - conn.net.quality;
+                        let sf = best.ap.speed / conn.ap.speed;
+                        if (qd > 0) {
+                            if (conn.net.quality < this._minQ) {
+                                isBetter = true;
+                            }
+                            else if (sf >= 1) {
+                                isBetter = true;
+                            }
+                            else if (qd / 10 < 2 * sf) {
+                                isBetter = true;
+                            }
                         }
-                        else if (sf >= 1) {
-                            isBetter = true;
-                        }
-                        else if (qd / 10 < 2 * sf) {
-                            isBetter = true;
+                        else if (sf > 1) {
+                            if (qd >= this._minQ && -qd / 10 < 2 * sf) {
+                                isBetter = true;
+                            }
                         }
                     }
-                    else if (sf > 1) {
-                        if (qd >= this._minQ && -qd / 10 < 2 * sf) {
-                            isBetter = true;
-                        }
+
+                }
+
+                if (isBetter) {
+                    console.log('Connection Manager - Connecting to ' + best.ap.ssid);
+                    this.onConnect(null, null, false);
+                    if (best.ap.ssid === null || best.ap.psk === null || !(await this._wifi.connect(best.ap.ssid, best.ap.psk))) {
+                        console.log('Connection Manager - Could not connect to ' + best.ap.ssid);
+                        continue;
                     }
+                    console.log('Connection Manager - Connected to ' + best.ap.ssid);
+                    this.onConnect(best.ap, best.net, true);
                 }
-
-            }
-
-            if (isBetter) {
-                console.log('Connection Manager - Connecting to ' + best.ap.ssid);
-                this.onConnect(null, null, false);
-                if (best.ap.ssid === null || best.ap.psk === null || !(await this._wifi.connect(best.ap.ssid, best.ap.psk))) {
-                    console.log('Connection Manager - Could not connect to ' + best.ap.ssid);
-                    continue;
+                else {
+                    console.log('Connection Manager - Not reconnecting');
+                    this.onConnect(conn.ap, conn.net, false);
                 }
-                console.log('Connection Manager - Connected to ' + best.ap.ssid);
-                this.onConnect(best.ap, best.net, true);
             }
             else {
-                console.log('Connection Manager - Not reconnecting');
-                this.onConnect(conn.ap, conn.net, false);
+                console.log('Connection Manager - WARNING - No wifi interface specified');
+                this.onConnect(null, null, false);
             }
+
+            if (this._htsp !== null) {
+                if (this._htsp.hasHotspot) {
+                    console.log(await this._htsp.connections());
+                }
+                else {
+                    //TODO: get ssid/psk from ...
+                    console.log('Connection Manager - Setting up hotspot on local device');
+                    let ok = await this._htsp.hotspot('cw-htsp', 'test1234', this._htspIp);
+                    if (ok) {
+                        console.log('Connection Manager - Local hotspot setup successful');
+                    }
+                    else {
+                        console.log('Connection Manager - Local hotspot setup failed');
+                    }
+                }          
+            }
+            else {
+                console.log('Connection Manager - WARNING - No hotspot interface specified');
+                this.onConnect(null, null, false);
+            }
+
         }
     }
 

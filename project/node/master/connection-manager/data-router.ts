@@ -3,8 +3,8 @@
 import * as CM from './connection-manager';
 import * as BSON from 'bson';
 import {Client, Pool, ResultBuilder} from 'pg';
-// import {Client as MClient} from 'mqtt';
-import {AsyncClient as MClient, connect as Mconnect} from 'async-mqtt';
+import {Client as MClient, connect as Mconnect, Packet} from 'mqtt';
+import { sleep } from './sleep-util';
 
 const uuidv4 = require('uuid/v4');
 
@@ -86,6 +86,7 @@ export class DataRouter {
     private _cm: CM.ConnectionManager;
 
     private _client: MClient|null = null;
+    private _clientErrored: boolean = false;
 
     private _connectionAvailable: boolean = false;
     private _connectionChanged: boolean = false;
@@ -106,6 +107,7 @@ export class DataRouter {
         }
         this._cm.on('connect', this.cmConnectCallback.bind(this));
         this.sendLoop();
+        // this.sendLoopWatchdog();
     }
 
     private cmConnectCallback(ap:CM.AP|null,net:CM.Network|null,newConnection:boolean): void {
@@ -138,10 +140,38 @@ export class DataRouter {
         }
         //TODO: change username/password
         if (this._client === null && this._connectionAvailable && this._connectionCanUseMqtt) {
-            this._client = Mconnect('mqtt://cwout.be', {
-                username: 'test',
-                password: 'test',
+            this._client = Mconnect('mqtts://mqtt.logitrack.tk', {
+                username: 'cwout',
+                clientId: 'cwout',
+                password: 'test123',
+                clean: false,
             });
+            let that: DataRouter = this;
+            this._client.on('error', (error: Error)=>{
+                that._clientErrored = true;
+                try {
+                    if (that._client !== null) {
+                        that._client.end(true);
+                    }
+                } catch (e) { console.error(e); }
+                that._client = null;
+                console.error(error);
+            });
+            // this._client.on('close', () => {
+            //     for (let i: number = 0; i < 20; i++) {
+            //         console.log('CLOSE');
+            //     }
+            // });
+            // this._client.on('offline', () => {
+            //     for (let i: number = 0; i < 20; i++) {
+            //         console.log('OFFLINE');
+            //     }
+            // });
+            // this._client.on('end', () => {
+            //     for (let i: number = 0; i < 20; i++) {
+            //         console.log('END');
+            //     }
+            // });
         }
 
     }
@@ -163,8 +193,25 @@ export class DataRouter {
         });
     }
 
+    private _sendLoopActive: boolean = false;
+
+    private async sendLoopWatchdog(): Promise<void> {
+        await sleep(30000);
+        console.log('send loop watchdog');
+        if (!this._sendLoopActive) {
+            console.log('restarting');
+            try {
+                this.sendLoop();
+            } catch (e) { console.log(e); }
+        }
+        else {
+            this._sendLoopActive = false;
+        }
+    }
+
     private async sendLoop(): Promise<void> {
         while (true) {
+            this._sendLoopActive = true;
             await this.sleep(0);
             if (this._cm.lastConnectedAP === null || this._cm.lastConnectedNetwork === null) {
                 console.log('Data Router - No connection detected - pausing')
@@ -195,7 +242,7 @@ export class DataRouter {
                 minU = DataUrgency.ASAP;
                 needsMqttClient = false;
             }
-            let data: Array<Data> = await this._buffer.peek(minU);
+            let data: Array<Data> = await this._buffer.peek(minU, DataUrgency.ASAP, 5000);
             if (data.length === 0) {
                 console.log('Data Router - No data to send on current connection - pausing')
                 await this.sleep(1000);
@@ -217,16 +264,61 @@ export class DataRouter {
                 }
             }
             console.log('Data Router - Sending');
-            for (let i: number = 0; i < data.length; i++) {
+            console.log('5');
+            await sleep(1000);
+            console.log('4');
+            await sleep(1000);
+            console.log('3');
+            await sleep(1000);
+            console.log('2');
+            await sleep(1000);
+            console.log('1');
+            await sleep(1000);
+            console.log('0');
+            for (let i: number = 0; i < data.length && !this._clientErrored; i++) {
                 if (data[i] === null) { continue; }
                 if (needsMqttClient && this._client !== null && this._client.connected) {
-                    await this._client.publish('0/data', data[i].bson);
-                }
-                let id: number|null = data[i].id;
-                if (id !== null) {
-                    this._buffer.remove([id]);
+                    console.log('A');
+                    try {
+                        console.log('SENDING ' + i);
+                        await new Promise<void>((resolve,reject)=>{
+                            if (this._client === null || !this._client.connected) {
+                                reject();
+                                return;
+                            }
+                            let that = this;
+                            const tmpcb = function() : void {
+                                that._clientErrored = true;
+                                if (that._client !== null) {
+                                    that._client.removeListener('close', tmpcb);
+                                }
+                                for (let i: number = 0; i < 20; i++) {
+                                    console.log('CLOSE');
+                                }
+                                resolve();
+                            }
+                            this._client.on('close', tmpcb);
+                            this._client.publish('0/data', data[i].bson, (error: Error|undefined)=>{
+                                if (this._client !== null) {
+                                    this._client.removeListener('close', tmpcb);
+                                }
+                                resolve();
+                            });
+                        });
+                        // await this._client.publish('0/data', data[i].bson);
+                        let id: number|null = data[i].id;
+                        if (id !== null && !this._clientErrored) {
+                            this._buffer.remove([id]);
+                            console.log('DELETING ' + i);
+                        }
+                    } catch (e) {
+                        console.log('C');
+                        console.log(e);
+                    }
+                    console.log('B');
                 }
             }
+            this._clientErrored = false;
         }
     }
 
@@ -262,6 +354,7 @@ class DataBuffer {
         if (insertedId < 0) {
             return false;
         }
+        await sleep(1000);
         return true;
     }
 
@@ -306,8 +399,8 @@ class DataBuffer {
 
 }
 
-// let cm: CM.ConnectionManager = new CM.ConnectionManager();
-let dr = new DataRouter();
+let cm: CM.ConnectionManager = new CM.ConnectionManager(0, null, null, 5000);
+let dr = new DataRouter(cm);
 
 dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'cw-2.4', '9edFrBDobS', 5, 120));
 dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'telenet-A837A-extended', '57735405', 5, 50));
@@ -318,8 +411,7 @@ setTimeout(()=>{
     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-    dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    for (let i: number = 0; i < 99996; i++) {
+        dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+    }
 }, 5000);
