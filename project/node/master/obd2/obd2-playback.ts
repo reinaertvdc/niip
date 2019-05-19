@@ -12,11 +12,11 @@ class OBD2Playback extends OBD2Base {
 
     public init(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            this.interface = new OBD2PlaybackInterface(this.filename);
-            (this.interface as OBD2PlaybackInterface).init().then(() => {
-                this.reader = new OBD2DataReader();
-                this.reader.setInterface(this.interface);
-                this.reader.init().then(() => {
+            this.obd2Interface = new OBD2PlaybackInterface(this.filename);
+            (this.obd2Interface as OBD2PlaybackInterface).init().then(() => {
+                this.obd2Reader = new OBD2DataReader();
+                this.obd2Reader.setInterface(this.obd2Interface);
+                this.obd2Reader.init().then(() => {
                     resolve();
                     this.emit("connect");
                 })
