@@ -63,6 +63,8 @@ export class ConnectionManager extends EventEmitter {
 
     private _wifi: WifiManager|null;
     private _htsp: WifiManager|null;
+    private _htspSsid: string|null;
+    private _htspPsk: string|null;
     private _htspIp: string|null;
     private _interval: number;
     private _scanWait: number;
@@ -71,23 +73,15 @@ export class ConnectionManager extends EventEmitter {
     private _ap: AP|null = null;
     private _net: Network|null = null;
 
-    public constructor(wifiIfacePrimary: string|number|null = 0, wifiIfaceHotspot: string|number|null = 1, hotspotIp: string|null = null, wifiCheckInterval: number = 10000, scanWaitTime: number = 5000, minQuality: number = 25) {
+    public constructor(wifiIfacePrimary: Array<string>|null = null, hotspotSsid: string|null = null, hotspotPsk: string|null = null, hotspotIp: string|null = null, wifiCheckInterval: number = 10000, scanWaitTime: number = 5000, minQuality: number = 25) {
         super();
         this._interval = wifiCheckInterval;
         this._scanWait = scanWaitTime;
         this._minQ = minQuality;
-        if (wifiIfacePrimary === null) {
-            this._wifi = null;
-        }
-        else {
-            this._wifi = new WifiManager(wifiIfacePrimary, ['8.8.8.8', '8.8.4.4', '1.1.1.1'], ['2001:4860:4860::8888', '2001:4860:4860::8844']);
-        }
-        if (wifiIfaceHotspot === null) {
-            this._htsp = null;
-        }
-        else {
-            this._htsp = new WifiManager(wifiIfaceHotspot, ['8.8.8.8', '8.8.4.4', '1.1.1.1'], ['2001:4860:4860::8888', '2001:4860:4860::8844']);
-        }
+        this._wifi = new WifiManager(wifiIfacePrimary, null, ['8.8.8.8', '8.8.4.4', '1.1.1.1'], ['2001:4860:4860::8888', '2001:4860:4860::8844']);
+        this._htsp = new WifiManager(null, wifiIfacePrimary, ['8.8.8.8', '8.8.4.4', '1.1.1.1'], ['2001:4860:4860::8888', '2001:4860:4860::8844']);
+        this._htspSsid = hotspotSsid;
+        this._htspPsk = hotspotPsk;
         this._htspIp = hotspotIp;
         this.connectLoop();
     }
@@ -176,8 +170,22 @@ export class ConnectionManager extends EventEmitter {
             else {
                 await sleep(this._interval);
             }
-
+            if (this._htsp !== null) {
+                let tmp = await this._htsp.init();
+                if (tmp) {
+                    if (!this._htsp.hasHotspot) {
+                        this._htsp.hotspot(this._htspSsid, this._htspPsk, this._htspIp);
+                    }
+                }
+                else {
+                    console.log('Connection Manager - WARNING - Could not initialize interface (hotspot)');
+                }
+            }
             if (this._wifi !== null) {
+                if (!await this._wifi.init()) {
+                    console.log('Connection Manager - WARNING - Could not initialize interface');
+                    continue;
+                }
 
                 console.log('Connection Manager - Scanning');
                 let bestNets = this.parseScanResults(await this._wifi.scan(true, this._scanWait));
@@ -316,27 +324,6 @@ export class ConnectionManager extends EventEmitter {
             }
             else {
                 console.log('Connection Manager - WARNING - No wifi interface specified');
-                this.onConnect(null, null, false);
-            }
-
-            if (this._htsp !== null) {
-                if (this._htsp.hasHotspot) {
-                    console.log(await this._htsp.connections());
-                }
-                else {
-                    //TODO: get ssid/psk from ...
-                    console.log('Connection Manager - Setting up hotspot on local device');
-                    let ok = await this._htsp.hotspot('cw-htsp', 'test1234', this._htspIp);
-                    if (ok) {
-                        console.log('Connection Manager - Local hotspot setup successful');
-                    }
-                    else {
-                        console.log('Connection Manager - Local hotspot setup failed');
-                    }
-                }          
-            }
-            else {
-                console.log('Connection Manager - WARNING - No hotspot interface specified');
                 this.onConnect(null, null, false);
             }
 

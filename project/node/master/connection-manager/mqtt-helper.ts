@@ -4,6 +4,8 @@ import {sleep} from './sleep-util';
 
 export {IClientOptions, QoS};
 
+EventEmitter.defaultMaxListeners = 0;
+
 export class MQTT extends EventEmitter {
 
     private _url: string;
@@ -16,11 +18,10 @@ export class MQTT extends EventEmitter {
         super();
         this._url = url;
         this._options = options;
-        this.setMaxListeners(0);
     }
 
     private clientListener(): void {
-        if (this._client !== null) {
+        if (this._client !== null && this._client !== undefined) {
             this._client.removeListener('error', this.clientListener);
             this._client.removeListener('end', this.clientListener);
             this._client.removeListener('offline', this.clientListener);
@@ -32,7 +33,7 @@ export class MQTT extends EventEmitter {
     private async innerConnect(timeout: number = 30000): Promise<boolean> {
         const that = this;
         return new Promise<boolean>((resolve,reject)=>{
-            if (that._client !== null || that._connecting) {
+            if ((that._client !== null && that._client !== undefined) || that._connecting) {
                 while (that._connecting) {
                     sleep(50);
                 }
@@ -56,7 +57,7 @@ export class MQTT extends EventEmitter {
             that._client.on('offline', tmpcb);
             that._client.on('close', tmpcb);
             const connectwait = function() {
-                if (that._client === null) {
+                if (that._client === null || that._client === undefined) {
                     clearTimeout(tmptimeout);
                     that._connecting = false;
                     resolve(false);
@@ -108,7 +109,7 @@ export class MQTT extends EventEmitter {
         while (this._connecting) {
             await sleep(50);
         }
-        if (this._client === null) { return; }
+        if (this._client === null || this._client === undefined) { return; }
         const that = this;
         await new Promise<void>((resolve,reject)=>{
             let errored: boolean = false;
@@ -160,7 +161,7 @@ export class MQTT extends EventEmitter {
     private async innerSubscribe(topic: string, qos: QoS = 0, timeout: number = 30000): Promise<boolean> {
         const that = this;
         return new Promise<boolean>((resolve,reject)=>{
-            if (that._client === null || that._connecting) {
+            if (that._client === null || that._client === undefined || that._connecting) {
                 resolve(false);
                 return;
             }
@@ -210,7 +211,7 @@ export class MQTT extends EventEmitter {
         for (let i: number = 0; i < this._topics.length; i++) {
             if (this._topics[i].topic === topic) { return true; }
         }
-        if (this._client === null || this._connecting) {
+        if (this._client === null || this._client === undefined || this._connecting) {
             this._topics.push({topic:topic,qos:qos});
             return false;
         }
@@ -225,7 +226,7 @@ export class MQTT extends EventEmitter {
     private async innerPublish(topic: string, message: string|Buffer, qos: QoS = 0, retain: boolean = false, dup: boolean = false, timeout: number = 30000): Promise<boolean> {
         const that = this;
         return new Promise<boolean>((resolve,reject)=>{
-            if (that._client === null || that._connecting) {
+            if (that._client === null || that._client === undefined || that._connecting) {
                 resolve(false);
                 return;
             }
@@ -266,12 +267,12 @@ export class MQTT extends EventEmitter {
     }
 
     public async publish(topic: string, message: string|Buffer, qos: QoS, retain: boolean = false, dup: boolean = false): Promise<boolean> {
-        if (this._client === null) {
+        if (this._client === null || this._client === undefined) {
             if (!await this.connect()) {
                 return false;
             }
         }
-        if (this._client === null || this._connecting) {
+        if (this._client === null || this._client === undefined || this._connecting) {
             return false;
         }
         return await this.innerPublish(topic, message, qos, retain, dup, 30000);

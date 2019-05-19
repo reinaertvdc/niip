@@ -6,8 +6,10 @@ import { Pool } from 'pg';
 import { MQTT } from './mqtt-helper';
 // import {Client as MClient, connect as Mconnect, Packet} from 'mqtt';
 import { sleep } from './sleep-util';
+import { NumericBase64 } from './base64-helper'
 
 import uuidv4 from 'uuid/v4';
+import { readFileSync, exists, symlinkSync } from 'fs';
 
 
 const PG_HOST = '127.0.0.1';
@@ -92,12 +94,25 @@ export class DataRouter {
     private _connectionChanged: boolean = false;
     private _connectionCanUseMqtt: boolean = false;
 
-    public constructor()
-    public constructor(wifiIface: string|number|null)
-    public constructor(cm: CM.ConnectionManager)
-    public constructor(arg: CM.ConnectionManager|string|number|null = null) {
+    private _username: string;
+    private _clientid: string;
+    private _password: string;
+    private _basetopic: string;
+    private _subtopicup: string;
+    private _subtopicdown: string;
+
+    public constructor(clientid: number, password: string)
+    public constructor(clientid: number, password: string, wifiIfacePrimary: Array<string>)
+    public constructor(clientid: number, password: string, cm: CM.ConnectionManager)
+    public constructor(clientid: number, password: string, arg: CM.ConnectionManager|Array<string>|null = null) {
+        this._username = NumericBase64.fromNumber(clientid);
+        this._clientid = NumericBase64.fromNumber(clientid);
+        this._password = password;
+        this._basetopic = NumericBase64.fromNumber(clientid);
+        this._subtopicup = 'u';
+        this._subtopicdown = 'd';
         if (arg === null) {
-            this._cm = new CM.ConnectionManager();
+            this._cm = new CM.ConnectionManager(null, null);
         }
         else if (arg instanceof CM.ConnectionManager) {
             this._cm = arg;
@@ -107,9 +122,9 @@ export class DataRouter {
         }
         this._cm.on('connect', this.cmConnectCallback.bind(this));
         this._mqtt = new MQTT('mqtts://mqtt.logitrack.tk', {
-            username: 'cwout',
-            clientId: 'cwout',
-            password: 'test123',
+            username: this._username,
+            clientId: this._clientid,
+            password: this._password,
             clean: false,
         });
         this.sendLoop();
@@ -165,7 +180,7 @@ export class DataRouter {
                 needsMqttClient = false;
                 needsLoraClient = true;
             }
-            let data: Array<Data> = await this._buffer.peek(minU, DataUrgency.ASAP, 5000);
+            let data: Array<Data> = await this._buffer.peek(minU, DataUrgency.ASAP, 10);
             if (data.length === 0) {
                 console.log('Data Router - No data to send on current connection - pausing')
                 await sleep(1000);
@@ -191,7 +206,7 @@ export class DataRouter {
                 dataArray.push(data[i].bson);
             }
             // console.log('SENDING [ 0 , ' + (data.length -1) + ' ]');
-            let sendResult: Array<boolean> = await this._mqtt.publishAll('0/data', dataArray, 1);
+            let sendResult: Array<boolean> = await this._mqtt.publishAll(this._basetopic + '/' + this._subtopicup, dataArray, 2);
             for (let i: number = 0; i < data.length && i < sendResult.length; i++) {
                 if (sendResult[i] === true) {
                     // console.log('DELETING ' + i);
@@ -280,18 +295,26 @@ class DataBuffer {
 
 }
 
-let cm: CM.ConnectionManager = new CM.ConnectionManager(0, null, null, 5000);
-let dr = new DataRouter(cm);
+let login: any = JSON.parse(readFileSync('login.json', 'ascii'));
+if (login === undefined || login.id === undefined || login.password === undefined || typeof login.id !== 'number' || typeof login.password !== 'string') {
+    console.log('CRITICAL! No username/password specified');
+    console.log('\tin file: login.json');
+    console.log('\tformat: {"id":<id>,"password":"<password>"}');
+}
+else {
+    let cm: CM.ConnectionManager = new CM.ConnectionManager(['wlp3s0','wlan0'], 'LogiTrack-'+login.id, login.password, null, 5000);
+    let dr = new DataRouter(login.id, login.password, cm);
 
-dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'cw-2.4', '9edFrBDobS', 5, 120));
-dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'telenet-A837A-extended', '57735405', 5, 50));
-dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'XT1635-02 4458', 'shagra2018', 0, 5000));
+    dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
+    dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
+    dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 5, 10));
 
-setTimeout(()=>{
-    for (let i: number = 0; i < 50; i++) {
-        dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
-    }
-    for (let i: number = 0; i < 5000; i++) {
-        dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-    }
-}, 5000);
+    setTimeout(()=>{
+        // for (let i: number = 0; i < 50; i++) {
+        //     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
+        // }
+        for (let i: number = 0; i < 50000; i++) {
+            dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+        }
+    }, 5000);
+}
