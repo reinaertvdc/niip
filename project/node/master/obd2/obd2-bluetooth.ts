@@ -4,9 +4,6 @@ import { OBD2SerialInterface } from "./obd2-serial-interface";
 import { OBD2DataReader } from "./obd2-data-reader";
 
 class OBD2Bluetooth extends OBD2Base {
-    protected obd2Interface: OBD2SerialInterface = null;
-    protected obd2Reader: OBD2DataReader  = null;
-
     private device: string;
     private devicePath: string;
     private serialOptions: any;
@@ -41,7 +38,7 @@ class OBD2Bluetooth extends OBD2Base {
                 this.obd2Reader.setInterface(obd2interface);
 
                 if(this.clearOnReconnect) {
-                    this.obd2Interface.clearQueue();
+                    obd2interface.clearQueue();
                 }
 
                 // We will initialise our OBD2Reader if it's not a reconnect
