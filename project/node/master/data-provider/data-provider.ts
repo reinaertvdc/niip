@@ -88,6 +88,10 @@ class DataProvider {
             // This list indicates which data we still need to gather
             let keySet: Set<string> = new Set(found);
 
+            if (found.length === 0) {
+                resolve(response);
+                return;
+            }
             // For each data source that we do have try to fetch it.
             found.forEach((value, index) => {
                 // getData return a promise

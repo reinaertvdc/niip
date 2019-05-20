@@ -4,12 +4,11 @@ import * as CM from './connection-manager';
 import * as BSON from 'bson';
 import { Pool } from 'pg';
 import { MQTT } from './mqtt-helper';
-// import {Client as MClient, connect as Mconnect, Packet} from 'mqtt';
 import { sleep } from './sleep-util';
 import { NumericBase64 } from './base64-helper'
+import { DataProvider } from '../data-provider/data-provider';
 
-import uuidv4 from 'uuid/v4';
-import { readFileSync, exists, symlinkSync } from 'fs';
+const uuidv4 = require('uuid/v4');
 
 
 const PG_HOST = '127.0.0.1';
@@ -127,6 +126,7 @@ export class DataRouter {
             password: this._password,
             clean: false,
         });
+        this.pollLoop();
         this.sendLoop();
     }
 
@@ -145,9 +145,25 @@ export class DataRouter {
         return inserted;
     }
 
+    private async pollLoop(): Promise<void> {
+        let uuid: string = uuidv4();
+        let provider = DataProvider.getInstance();
+        while (true) {
+            let sourcesMap = provider.getSources();
+            let sources: string[] = [];
+            for (let i: number = 0; i < sourcesMap.length; i++) {
+                sources.push(sourcesMap[i].key);
+            }
+            let tmp: {} = await provider.getMultipleData(sources);
+            let timestamp: number = Date.now();
+            let data: Data = new Data(uuid, timestamp, tmp);
+            this.send(data);
+            await sleep(1000);
+        }
+    }
+
     private async sendLoop(): Promise<void> {
         while (true) {
-            // this._sendLoopActive = true;
             await sleep(0);
             if (this._cm.lastConnectedAP === null || this._cm.lastConnectedNetwork === null) {
                 console.log('Data Router - No connection detected - pausing')
@@ -205,11 +221,9 @@ export class DataRouter {
             for (let i: number = 0; i < data.length; i++) {
                 dataArray.push(data[i].bson);
             }
-            // console.log('SENDING [ 0 , ' + (data.length -1) + ' ]');
             let sendResult: Array<boolean> = await this._mqtt.publishAll(this._basetopic + '/' + this._subtopicup, dataArray, 2);
             for (let i: number = 0; i < data.length && i < sendResult.length; i++) {
                 if (sendResult[i] === true) {
-                    // console.log('DELETING ' + i);
                     let id: number|null = data[i].id;
                     if (id !== null) {
                         this._buffer.remove([id]);
@@ -295,26 +309,23 @@ class DataBuffer {
 
 }
 
-let login: any = JSON.parse(readFileSync('login.json', 'ascii'));
-if (login === undefined || login.id === undefined || login.password === undefined || typeof login.id !== 'number' || typeof login.password !== 'string') {
-    console.log('CRITICAL! No username/password specified');
-    console.log('\tin file: login.json');
-    console.log('\tformat: {"id":<id>,"password":"<password>"}');
-}
-else {
-    let cm: CM.ConnectionManager = new CM.ConnectionManager(['wlp3s0','wlan0'], 'LogiTrack-'+login.id, login.password, null, 5000);
-    let dr = new DataRouter(login.id, login.password, cm);
+// let login: any = JSON.parse(readFileSync('login.json', 'ascii'));
+// if (login === undefined || login.id === undefined || login.password === undefined || typeof login.id !== 'number' || typeof login.password !== 'string') {
+//     console.log('CRITICAL! No username/password specified');
+//     console.log('\tin file: login.json');
+//     console.log('\tformat: {"id":<id>,"password":"<password>"}');
+// }
+// else {
+//     let cm: CM.ConnectionManager = new CM.ConnectionManager(['wlp3s0','wlan0'], 'LogiTrack-'+login.id, login.password, null, 5000);
+//     let dr = new DataRouter(login.id, login.password, cm);
 
-    dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
-    dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
-    dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 5, 10));
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 5, 10));
 
-    setTimeout(()=>{
-        // for (let i: number = 0; i < 50; i++) {
-        //     dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
-        // }
-        for (let i: number = 0; i < 50000; i++) {
-            dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-        }
-    }, 5000);
-}
+//     setTimeout(()=>{
+//         for (let i: number = 0; i < 50000; i++) {
+//             dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+//         }
+//     }, 5000);
+// }

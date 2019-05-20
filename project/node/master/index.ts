@@ -4,6 +4,9 @@ import { DataProvider } from "./data-provider/data-provider";
 import { OBD2Logger } from "./obd2/obd2-logger";
 import { OBD2Base } from "./obd2/obd2-base";
 import { OBD2Playback } from "./obd2/obd2-playback";
+import { DataRouter } from './data-router/data-router';
+import { ConnectionManager, AP, APtype } from './data-router/connection-manager';
+import { readFileSync } from "fs";
 
 const program = require("commander");
 
@@ -17,6 +20,10 @@ program
 	.option("-s, --serial <path>", "Change the mount place of the serial connection, default /dev/rfcomm0.", "/dev/rfcomm0")
 	.option("-b, --baudrate <baudrate>", "Change the baudrate of the serial connection, default 38400", parseInt, 38400)
 	.option("-o, --output <filename>", "Save the received data to a file.")
+	.option("-I, --interface <interfaces>", "Specify the possible wifi interface names to use as primary interfaces, default \"wlan0,wlp3s0\"", (val)=>{return val.split(',');})
+	.option("-l, --login <filename>", "File containing id and password for LogiTrack login", "login.json")
+	.option("-u, --userid <id>", "The id used for logging into LogiTrack, overrides login file id", parseInt)
+	.option("-p, --password <password>", "The password used for logging into LogiTrack, overrides login file password")
 	.parse(process.argv);
 
 /**
@@ -105,6 +112,40 @@ if(logger == null) {
 			provider.remove("pid-" + supportedPIDs[i]);
 		}
 	});
+}
+
+let login: any = JSON.parse(readFileSync(program.login, 'ascii'));
+let id: number|null = null;
+let password: string|null = null;
+if (program.id !== undefined) {
+	id = program.id;
+}
+else if (login !== undefined && login.id !== undefined && typeof login.id === 'number') {
+	id = login.id;
+}
+if (program.password !== undefined) {
+	password = program.password;
+}
+else if (login !== undefined && login.password !== undefined && typeof login.password === 'string') {
+	password = login.password;
+}
+if (id === null || password === null) {
+	console.log('CRITICAL! No username/password specified');
+    console.log('\tin file: login.json');
+    console.log('\tformat: {"id":<id>,"password":"<password>"}');
+}
+else {
+	let ifaces: string[] = ['wlan0','wlp3s0'];
+	if (program.interfaces !== undefined && program.interfaces.length > 0) {
+		ifaces = program.interfaces;
+	}
+	let connector = new ConnectionManager(ifaces, 'LogiTrack-'+id, password, '10.10.10.1');
+	let router = new DataRouter(id, password, connector);
+	//TODO: move AP details to file
+	connector.addAP(new AP(APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
+    connector.addAP(new AP(APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
+    connector.addAP(new AP(APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 5, 10));
+	//TODO: request extra AP details from server
 }
 
 // This is to stop node from closing
