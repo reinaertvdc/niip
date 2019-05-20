@@ -114,7 +114,10 @@ if(logger == null) {
 	});
 }
 
-let login: any = JSON.parse(readFileSync(program.login, 'ascii'));
+let login: {id: number|undefined, password: string|undefined} = {id: undefined, password: undefined};
+try {
+	login = JSON.parse(readFileSync(program.login, 'ascii'));
+} catch (e) {}
 let id: number|null = null;
 let password: string|null = null;
 if (program.id !== undefined) {
