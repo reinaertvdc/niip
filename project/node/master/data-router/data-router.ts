@@ -4,10 +4,11 @@ import * as CM from './connection-manager';
 import * as BSON from 'bson';
 import { Pool } from 'pg';
 import { MQTT } from './mqtt-helper';
-// import {Client as MClient, connect as Mconnect, Packet} from 'mqtt';
 import { sleep } from './sleep-util';
+import { NumericBase64 } from './base64-helper'
+import { DataProvider } from '../data-provider/data-provider';
 
-import uuidv4 from 'uuid/v4';
+const uuidv4 = require('uuid/v4');
 
 
 const PG_HOST = '127.0.0.1';
@@ -26,6 +27,8 @@ export enum DataUrgency {
 
 
 export class Data {
+
+    //TODO: remove stream
 
     private _id: number|null;
     private _uuid: string;
@@ -61,22 +64,25 @@ export class Data {
         return this._data;
     }
 
-    private toJsonObject(): {stream: string, timestamp: number, data: {}} {
-        let tmp: {stream: string, timestamp: number, data: {}} = {
-            stream: this._uuid,
+    private toJsonObject(): {timestamp: number, data: {}} {
+        let tmp: {timestamp: number, data: {}} = {
             timestamp: this._timestamp,
             data: this._data,
         }
         return tmp;
     }
 
-    public get json(): string {
+    public get jsonString(): string {
         return JSON.stringify(this.toJsonObject());
     }
 
-    public get bson(): Buffer {
-        return BSON.serialize(this.toJsonObject());
+    public get jsonBuffer(): Buffer {
+        return Buffer.from(this.jsonString);
     }
+
+    // public get bson(): Buffer {
+    //     return BSON.serialize(this.toJsonObject());
+    // }
     
 }
 
@@ -92,12 +98,25 @@ export class DataRouter {
     private _connectionChanged: boolean = false;
     private _connectionCanUseMqtt: boolean = false;
 
-    public constructor()
-    public constructor(wifiIface: string|number|null)
-    public constructor(cm: CM.ConnectionManager)
-    public constructor(arg: CM.ConnectionManager|string|number|null = null) {
+    private _username: string;
+    private _clientid: string;
+    private _password: string;
+    private _basetopic: string;
+    private _subtopicup: string;
+    private _subtopicdown: string;
+
+    public constructor(clientid: number, password: string)
+    public constructor(clientid: number, password: string, wifiIfacePrimary: Array<string>)
+    public constructor(clientid: number, password: string, cm: CM.ConnectionManager)
+    public constructor(clientid: number, password: string, arg: CM.ConnectionManager|Array<string>|null = null) {
+        this._username = NumericBase64.fromNumber(clientid);
+        this._clientid = NumericBase64.fromNumber(clientid);
+        this._password = password;
+        this._basetopic = NumericBase64.fromNumber(clientid);
+        this._subtopicup = 'u';
+        this._subtopicdown = 'd';
         if (arg === null) {
-            this._cm = new CM.ConnectionManager();
+            this._cm = new CM.ConnectionManager(null, null);
         }
         else if (arg instanceof CM.ConnectionManager) {
             this._cm = arg;
@@ -107,12 +126,18 @@ export class DataRouter {
         }
         this._cm.on('connect', this.cmConnectCallback.bind(this));
         this._mqtt = new MQTT('mqtts://mqtt.logitrack.tk', {
-            username: 'cwout',
-            clientId: 'cwout',
-            password: 'test123',
+            username: this._username,
+            clientId: this._clientid,
+            password: this._password,
             clean: false,
         });
-        this.sendLoop();
+        //TODO: change callback
+        this._mqtt.subscribe(this._basetopic + '/' + this._subtopicdown, 2, (topic: string, payload:Buffer)=>{
+            console.log(payload);
+        }).then((val:boolean)=>{
+            this.pollLoop();
+            this.sendLoop();
+        });
     }
 
     private cmConnectCallback(ap:CM.AP|null,net:CM.Network|null,newConnection:boolean): void {
@@ -130,9 +155,25 @@ export class DataRouter {
         return inserted;
     }
 
+    private async pollLoop(): Promise<void> {
+        let uuid: string = uuidv4();
+        let provider = DataProvider.getInstance();
+        while (true) {
+            let sourcesMap = provider.getSources();
+            let sources: string[] = [];
+            for (let i: number = 0; i < sourcesMap.length; i++) {
+                sources.push(sourcesMap[i].key);
+            }
+            let tmp: {} = await provider.getMultipleData(sources);
+            let timestamp: number = Date.now();
+            let data: Data = new Data(uuid, timestamp, tmp);
+            this.send(data);
+            await sleep(0);
+        }
+    }
+
     private async sendLoop(): Promise<void> {
         while (true) {
-            // this._sendLoopActive = true;
             await sleep(0);
             if (this._cm.lastConnectedAP === null || this._cm.lastConnectedNetwork === null) {
                 console.log('Data Router - No connection detected - pausing')
@@ -165,7 +206,7 @@ export class DataRouter {
                 needsMqttClient = false;
                 needsLoraClient = true;
             }
-            let data: Array<Data> = await this._buffer.peek(minU, DataUrgency.ASAP, 5000);
+            let data: Array<Data> = await this._buffer.peek(minU, DataUrgency.ASAP, 10);
             if (data.length === 0) {
                 console.log('Data Router - No data to send on current connection - pausing')
                 await sleep(1000);
@@ -188,13 +229,11 @@ export class DataRouter {
             console.log('Data Router - Sending');;
             let dataArray: Array<Buffer> = [];
             for (let i: number = 0; i < data.length; i++) {
-                dataArray.push(data[i].bson);
+                dataArray.push(data[i].jsonBuffer);
             }
-            // console.log('SENDING [ 0 , ' + (data.length -1) + ' ]');
-            let sendResult: Array<boolean> = await this._mqtt.publishAll('0/data', dataArray, 1);
+            let sendResult: Array<boolean> = await this._mqtt.publishAll(this._basetopic + '/' + this._subtopicup, dataArray, 2);
             for (let i: number = 0; i < data.length && i < sendResult.length; i++) {
                 if (sendResult[i] === true) {
-                    // console.log('DELETING ' + i);
                     let id: number|null = data[i].id;
                     if (id !== null) {
                         this._buffer.remove([id]);
@@ -205,6 +244,42 @@ export class DataRouter {
     }
 
 }
+
+
+// class DataGrouper {
+//     private constructor() {}
+//     public static group(data: Array<Data>): Buffer {
+//         if (data.length === 0) { return Buffer.from('', 'ascii'); }
+//         data.sort((a,b)=>(a.timestamp > b.timestamp) ? 1 : -1);
+//         let start: number = data[0].timestamp;
+//         let offsets: Array<number> = [];
+//         let g = {};
+//         g['start'] = start;
+//         g['data'] = {};
+//         offsets[0] = 0;
+//         for (let i: number = 1; i < data.length; i++) {
+//             offsets.push(data[i].timestamp - start);
+//         }
+//         for (let i: number = 0; i < data.length; i++) {
+//             let d = data[i];
+//             let keys = Object.keys(d.data);
+//             for (let j:number = 0; j < keys.length; j++) {
+//                 let key = keys[j];
+//                 if (g['data'][key] === undefined) { g['data'][key] = {values:[],deltas:[]}; }
+//                 g['data'][key].values.push(d.data[key]);
+//                 g['data'][key].deltas.push(offsets[i]);
+//             }
+//         }
+//         let keys = Object.keys(g['data']);
+//         for (let i: number = 0; i < keys.length; i++) {
+//             let key = keys[i];
+//             for (let j: number = g['data'][key].deltas.length - 1; j > 0; j--) {
+//                 g['data'][key].deltas[j] = g['data'][key].deltas[j] - g['data'][key].deltas[j-1];
+//             }
+//         }
+//         return BSON.serialize(g);
+//     }
+// }
 
 
 class DataBuffer {
@@ -225,7 +300,7 @@ class DataBuffer {
         const client = await this._pg.connect();
         let insertedId: number = -1;
         try {
-            let result = await client.query('INSERT INTO buffer (stream,timestamp,data,urgency) VALUES ($1, to_timestamp($2), $3, $4) RETURNING id', [data.streamUuid, data.timestamp, data.json, data.urgency]);
+            let result = await client.query('INSERT INTO buffer (stream,timestamp,data,urgency) VALUES ($1, to_timestamp($2), $3, $4) RETURNING id', [data.streamUuid, data.timestamp, JSON.stringify(data.data), data.urgency]);
             if (result.rows.length > 0) {
                 insertedId = result.rows[0].id;
             }
@@ -280,18 +355,23 @@ class DataBuffer {
 
 }
 
-let cm: CM.ConnectionManager = new CM.ConnectionManager(0, null, null, 5000);
-let dr = new DataRouter(cm);
+// let login: any = JSON.parse(readFileSync('login.json', 'ascii'));
+// if (login === undefined || login.id === undefined || login.password === undefined || typeof login.id !== 'number' || typeof login.password !== 'string') {
+//     console.log('CRITICAL! No username/password specified');
+//     console.log('\tin file: login.json');
+//     console.log('\tformat: {"id":<id>,"password":"<password>"}');
+// }
+// else {
+//     let cm: CM.ConnectionManager = new CM.ConnectionManager(['wlp3s0','wlan0'], 'LogiTrack-'+login.id, login.password, null, 5000);
+//     let dr = new DataRouter(login.id, login.password, cm);
 
-dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'cw-2.4', '9edFrBDobS', 5, 120));
-dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'telenet-A837A-extended', '57735405', 5, 50));
-dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'XT1635-02 4458', 'shagra2018', 0, 5000));
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 5, 10));
 
-setTimeout(()=>{
-    for (let i: number = 0; i < 50; i++) {
-        dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.HIGHCOST));
-    }
-    for (let i: number = 0; i < 5000; i++) {
-        dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
-    }
-}, 5000);
+//     setTimeout(()=>{
+//         for (let i: number = 0; i < 50000; i++) {
+//             dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));
+//         }
+//     }, 5000);
+// }

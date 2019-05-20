@@ -31,10 +31,14 @@ export interface Network {
 export class WifiManager {
 
     private _iface: string|null = null;
+    private _ifaceWhitelist: Array<string> = [];
+    private _ifaceUseWhitelist: boolean = false;
+    private _ifaceUseBlacklist: boolean = false;
+    private _ifaceBlacklist: Array<string> = []
     private _dns: Array<string> = [];
     private _dns6: Array<string> = [];
     private _hasHotspot: boolean = false;
-    private _ifaceIndex: number = -1;
+    // private _ifaceIndex: number = -1;
     private _initialized: boolean = false;
     private _dnsSet = false;
 
@@ -46,15 +50,14 @@ export class WifiManager {
         return this._iface;
     }
 
-    public constructor(iface: string|number = 0, dns: Array<string> = [], dns6: Array<string> = []) {
-        if (typeof iface === 'string') {
-            this._iface = iface;
+    public constructor(ifaceWhitelist: Array<string>|null = null, ifaceBlacklist: Array<string>|null = null, dns: Array<string> = [], dns6: Array<string> = []) {
+        if (ifaceWhitelist !== null) {
+            this._ifaceUseWhitelist = true;
+            this._ifaceWhitelist = ifaceWhitelist;
         }
-        else if (typeof iface === 'number') {
-            this._ifaceIndex = iface;
-        }
-        else {
-            this._ifaceIndex = 0;
+        if (ifaceBlacklist !== null) {
+            this._ifaceUseBlacklist = true;
+            this._ifaceBlacklist = ifaceBlacklist;
         }
         this._dns = dns;
         this._dns6 = dns6;
@@ -106,33 +109,23 @@ export class WifiManager {
         return ifaces;
     }
 
-    private async initIfaceNameIndex(): Promise<boolean> {
+    private async initIface(): Promise<boolean> {
         let ifaces: Array<string> = await this.interfaces();
-        if (this._iface === null && this._ifaceIndex < 0) {
-            return false;
-        }
-        else if (this._iface === null && this._ifaceIndex >= 0) {
-            if (this._ifaceIndex >= ifaces.length) {
-                return false;
+        for (let i: number = 0; i < ifaces.length; i++) {
+            let whitelisted: boolean = true;
+            let blacklisted: boolean = false;
+            if (this._ifaceUseWhitelist) {
+                whitelisted = this._ifaceWhitelist.includes(ifaces[i]);
             }
-            this._iface = ifaces[this._ifaceIndex];
-        }
-        else if (this._iface !== null && this._ifaceIndex < 0) {
-            let tmpIndex: number = ifaces.indexOf(this._iface);
-            if (tmpIndex < 0) {
-                return false;
+            if (this._ifaceUseBlacklist) {
+                blacklisted = this._ifaceBlacklist.includes(ifaces[i]);
             }
-            this._ifaceIndex = tmpIndex;
-        }
-        else if (this._iface !== null && this._ifaceIndex >= 0) {
-            if (this._ifaceIndex >= ifaces.length) {
-                return false;
-            }
-            if (ifaces[this._ifaceIndex] !== this._iface) {
-                return false;
+            if (whitelisted && !blacklisted) {
+                this._iface = ifaces[i];
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     public async setConnectionDns(conn: string): Promise<void> {
@@ -159,14 +152,45 @@ export class WifiManager {
         await this.runNmcliCmd([], 'con up "' + conn + '"', true);
     }
 
+    private async checkHotspot(): Promise<boolean> {
+        let tmp = (await this.runNmcliCmd(['active','device','name'],'con show', false)).parsed;
+        for (let i: number = 0; i < tmp.length; i++) {
+            if (tmp[i][0] === 'yes' || tmp[i][0] === 'ja') {
+                if (tmp[i][1] === this._iface) {
+                    if (tmp[i][2] === 'Hotspot') {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public async init(): Promise<boolean> {
         if (this._initialized) {
-            return true;
+            let ifaces: Array<string> = await this.interfaces();
+            if (this._iface !== null && ifaces.includes(this._iface)) {
+                if (this._hasHotspot) {
+                    if (!await this.checkHotspot()) {
+                        this._hasHotspot = false;
+                    }
+                }
+                return true;
+            }
+            else {
+                this._initialized = false;
+                this._iface = null;
+                this._hasHotspot = false;
+            }
         }
-        if (!(await this.initIfaceNameIndex())) {
-            return false;
+        if (!this._initialized) {
+            this._initialized = await this.initIface();
         }
-        return true;
+        if (!this._initialized) {
+            this._iface = null;
+            this._hasHotspot = false;
+        }
+        return this._initialized;
     }
 
     public async rescan(): Promise<void> {
@@ -260,27 +284,21 @@ export class WifiManager {
         await this.runNmcliCmd([], 'dev disconnect', true);
     }
 
-    public async hotspot(ssid: string = 'Hotspot', psk: string = 'password', ip: string|null = null): Promise<boolean> {
+    public async hotspot(ssid: string|null = 'Hotspot', psk: string|null = 'password', ip: string|null = null): Promise<boolean> {
         if (!(await this.init())) { return false; }
         this._hasHotspot = false;
         await this.delete('Hotspot');
-        let out: string = (await this.runNmcliCmd([], 'dev wifi hotspot con-name Hotspot ssid "' + ssid + '" band bg channel 1 password "' + psk + '"', true)).out;
+        let tmp = await this.runNmcliCmd([], 'con add type wifi con-name Hotspot autoconnect no ssid ' + ssid, true);
+        tmp = await this.runNmcliCmd([], 'con mod Hotspot 802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel 1 ipv4.method shared ipv6.method ignore', false);
+        tmp = await this.runNmcliCmd([], 'con mod Hotspot 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk ' + psk, false);
+        if (ip !== null) {
+            tmp = await this.runNmcliCmd([], 'con modify Hotspot ipv4.addresses ' + ip + '/24', false);
+        }
+        tmp = await this.runNmcliCmd([], 'con up Hotspot', false);
+        let out: string = tmp.out;
         if (out.includes('success')) {
             this._hasHotspot = true;
-            if (ip !== null) {
-                await this.runNmcliCmd([], 'con down Hotspot ipv4.addresses ' + ip + '/24', true)
-                await this.runNmcliCmd([], 'con modify Hotspot ipv4.addresses ' + ip + '/24', true)
-                out = (await this.runNmcliCmd([], 'con up Hotspot ipv4.addresses ' + ip + '/24', true)).out;
-                if (out.includes('success')) {
-                    return true;
-                }
-                else {
-                    return false;
-                }
-            }
-            else {
-                return true;
-            }
+            return true;
         }
         else {
             await this.delete('Hotspot');
