@@ -28,6 +28,8 @@ export enum DataUrgency {
 
 export class Data {
 
+    //TODO: remove stream
+
     private _id: number|null;
     private _uuid: string;
     private _timestamp: number;
@@ -62,22 +64,25 @@ export class Data {
         return this._data;
     }
 
-    private toJsonObject(): {stream: string, timestamp: number, data: {}} {
-        let tmp: {stream: string, timestamp: number, data: {}} = {
-            stream: this._uuid,
+    private toJsonObject(): {timestamp: number, data: {}} {
+        let tmp: {timestamp: number, data: {}} = {
             timestamp: this._timestamp,
             data: this._data,
         }
         return tmp;
     }
 
-    public get json(): string {
+    public get jsonString(): string {
         return JSON.stringify(this.toJsonObject());
     }
 
-    public get bson(): Buffer {
-        return BSON.serialize(this.toJsonObject());
+    public get jsonBuffer(): Buffer {
+        return Buffer.from(this.jsonString);
     }
+
+    // public get bson(): Buffer {
+    //     return BSON.serialize(this.toJsonObject());
+    // }
     
 }
 
@@ -153,7 +158,6 @@ export class DataRouter {
     private async pollLoop(): Promise<void> {
         let uuid: string = uuidv4();
         let provider = DataProvider.getInstance();
-        // let tmpIndex: number = 0;
         while (true) {
             let sourcesMap = provider.getSources();
             let sources: string[] = [];
@@ -164,9 +168,7 @@ export class DataRouter {
             let timestamp: number = Date.now();
             let data: Data = new Data(uuid, timestamp, tmp);
             this.send(data);
-            // tmpIndex++;
-            // console.log(tmpIndex);
-            await sleep(1000);
+            await sleep(0);
         }
     }
 
@@ -227,7 +229,7 @@ export class DataRouter {
             console.log('Data Router - Sending');;
             let dataArray: Array<Buffer> = [];
             for (let i: number = 0; i < data.length; i++) {
-                dataArray.push(data[i].bson);
+                dataArray.push(data[i].jsonBuffer);
             }
             let sendResult: Array<boolean> = await this._mqtt.publishAll(this._basetopic + '/' + this._subtopicup, dataArray, 2);
             for (let i: number = 0; i < data.length && i < sendResult.length; i++) {
@@ -242,6 +244,42 @@ export class DataRouter {
     }
 
 }
+
+
+// class DataGrouper {
+//     private constructor() {}
+//     public static group(data: Array<Data>): Buffer {
+//         if (data.length === 0) { return Buffer.from('', 'ascii'); }
+//         data.sort((a,b)=>(a.timestamp > b.timestamp) ? 1 : -1);
+//         let start: number = data[0].timestamp;
+//         let offsets: Array<number> = [];
+//         let g = {};
+//         g['start'] = start;
+//         g['data'] = {};
+//         offsets[0] = 0;
+//         for (let i: number = 1; i < data.length; i++) {
+//             offsets.push(data[i].timestamp - start);
+//         }
+//         for (let i: number = 0; i < data.length; i++) {
+//             let d = data[i];
+//             let keys = Object.keys(d.data);
+//             for (let j:number = 0; j < keys.length; j++) {
+//                 let key = keys[j];
+//                 if (g['data'][key] === undefined) { g['data'][key] = {values:[],deltas:[]}; }
+//                 g['data'][key].values.push(d.data[key]);
+//                 g['data'][key].deltas.push(offsets[i]);
+//             }
+//         }
+//         let keys = Object.keys(g['data']);
+//         for (let i: number = 0; i < keys.length; i++) {
+//             let key = keys[i];
+//             for (let j: number = g['data'][key].deltas.length - 1; j > 0; j--) {
+//                 g['data'][key].deltas[j] = g['data'][key].deltas[j] - g['data'][key].deltas[j-1];
+//             }
+//         }
+//         return BSON.serialize(g);
+//     }
+// }
 
 
 class DataBuffer {
@@ -262,7 +300,7 @@ class DataBuffer {
         const client = await this._pg.connect();
         let insertedId: number = -1;
         try {
-            let result = await client.query('INSERT INTO buffer (stream,timestamp,data,urgency) VALUES ($1, to_timestamp($2), $3, $4) RETURNING id', [data.streamUuid, data.timestamp, data.json, data.urgency]);
+            let result = await client.query('INSERT INTO buffer (stream,timestamp,data,urgency) VALUES ($1, to_timestamp($2), $3, $4) RETURNING id', [data.streamUuid, data.timestamp, JSON.stringify(data.data), data.urgency]);
             if (result.rows.length > 0) {
                 insertedId = result.rows[0].id;
             }
