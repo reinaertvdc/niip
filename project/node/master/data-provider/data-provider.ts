@@ -1,3 +1,5 @@
+import { EventEmitter } from "events";
+
 interface DataSource {
     key: string,
     description: string,
@@ -11,12 +13,12 @@ type DataDescription = {
     description: string;
 }
 
-class DataProvider {
+class DataProvider extends EventEmitter {
     private static instance: DataProvider = null;
     private dataSources: Map<string, DataSource> = new Map();
 
     private constructor() {
-        
+        super()
     }
 
     public static getInstance(): DataProvider {
@@ -122,6 +124,12 @@ class DataProvider {
     public remove(key: string) {
         if(this.dataSources.has(key))
             this.dataSources.delete(key);
+    }
+
+    public announceNewData(key: string) {
+        if(this.has(key)) {
+            this.emit("new-data", key)
+        }
     }
 }
 

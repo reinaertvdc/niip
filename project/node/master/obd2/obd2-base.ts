@@ -31,6 +31,12 @@ abstract class OBD2Base extends EventEmitter {
     public getPIDDescription(pidNumber: number): string {
         return this.obd2Reader.getPIDDescription(pidNumber);
     }
+
+    protected subscribeOnUpdate() {
+        this.obd2Reader.on("update", (pids: number[]) => {
+            this.emit("update", pids);
+        });
+    }
 }
 
 export { OBD2Base };

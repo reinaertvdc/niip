@@ -36,6 +36,7 @@ class OBD2Bluetooth extends OBD2Base {
                 console.log("[BluetoothOBD2] Bluetooth device \"" + this.device);
                 this.obd2Interface = obd2interface;
                 this.obd2Reader.setInterface(obd2interface);
+                this.subscribeOnUpdate()
 
                 if(this.clearOnReconnect) {
                     obd2interface.clearQueue();

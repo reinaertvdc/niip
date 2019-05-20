@@ -1,6 +1,7 @@
 import { OBD2PIDMap } from "./obd2-pidmaps";
 import { OBD2Interface } from "./obd2-interface"
 import { PIDOutput } from "./obd2-serial-interface";
+import { EventEmitter } from "events"
 
 type PIDValueWrapper = {
 	pid: number;
@@ -8,7 +9,7 @@ type PIDValueWrapper = {
 	value: any;
 }
 
-class OBD2DataReader {
+class OBD2DataReader extends EventEmitter {
 	private obdMap: OBD2PIDMap;
 	private obdInterface: OBD2Interface = null;
 	private supportedPIDs: Array<number> = [0x00];
@@ -20,6 +21,7 @@ class OBD2DataReader {
 	private bufferStart: number;
 
 	constructor(buffer: boolean = true, minInterval: number = 1000) {
+		super()
 		this.obdMap = new OBD2PIDMap();
 		this.bufferedData = new Map<number, string>();
 		this.shouldBuffer = buffer;
@@ -200,7 +202,7 @@ class OBD2DataReader {
 					setTimeout(() => {
 						this.bufferStart = Date.now();
 						this.getAllPIDData(false, false).then(callback);
-					}, Math.max(1000 - delta, 0));
+					}, Math.max(this.minInterval - delta, 0));
 				}
 			}
 			
@@ -213,9 +215,14 @@ class OBD2DataReader {
 	}
 
 	private updateBuffer(data: PIDValueWrapper[]): void {
+		let pids: number[] = []
+
 		for(let i = 0; i < data.length; i++) {
+			pids.push(data[i].pid)
 			this.bufferedData.set(data[i].pid, data[i].value.data);
 		}
+
+		this.emit("new-data", pids)
 	}
 }
 

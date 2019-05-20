@@ -16,6 +16,7 @@ class OBD2Playback extends OBD2Base {
             (this.obd2Interface as OBD2PlaybackInterface).init().then(() => {
                 this.obd2Reader = new OBD2DataReader();
                 this.obd2Reader.setInterface(this.obd2Interface);
+                this.subscribeOnUpdate()
                 this.obd2Reader.init().then(() => {
                     resolve();
                     this.emit("connect");

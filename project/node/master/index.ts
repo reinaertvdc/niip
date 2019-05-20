@@ -91,7 +91,7 @@ if(logger == null) {
 				"key": "pid-" + supportedPIDs[i],
 				"source": obd2.getBufferedData,
 				"thisObject": obd2,
-				"arguments": [supportedPIDs[i]],
+				"arguments": [supportedPIDs[i], false, false],
 				"description": obd2.getPIDDescription(supportedPIDs[i])
 			});
 
@@ -103,6 +103,13 @@ if(logger == null) {
 		console.log("[MAIN] OBD disconnected, removing sources from dataprovider.");
 		for(let i: number = 0; i < supportedPIDs.length; i++) {
 			provider.remove("pid-" + supportedPIDs[i]);
+		}
+	});
+
+	obd2.on("update", (pids: number[]) => {
+		for (let index = 0; index < pids.length; index++) {
+			const pid: number = pids[index];
+			provider.announceNewData("pid-" + pid)
 		}
 	});
 }
