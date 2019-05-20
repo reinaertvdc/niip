@@ -115,6 +115,7 @@ class DataProvider extends EventEmitter {
      */
     public register(source: DataSource) {
         this.dataSources.set(source.key, source);
+        this.emit("source-added", source.key)
     }
 
     /**
@@ -122,13 +123,15 @@ class DataProvider extends EventEmitter {
      * @param key: The key that was used to register the data source 
      */
     public remove(key: string) {
-        if(this.dataSources.has(key))
+        if(this.dataSources.has(key)) {
             this.dataSources.delete(key);
+            this.emit("source-removed", key);
+        }
     }
 
     public announceNewData(key: string) {
         if(this.has(key)) {
-            this.emit("new-data", key)
+            this.emit("new-data", key);
         }
     }
 }
