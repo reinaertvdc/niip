@@ -126,8 +126,13 @@ export class DataRouter {
             password: this._password,
             clean: false,
         });
-        this.pollLoop();
-        this.sendLoop();
+        //TODO: change callback
+        this._mqtt.subscribe(this._basetopic + '/' + this._subtopicdown, 2, (topic: string, payload:Buffer)=>{
+            console.log(payload);
+        }).then((val:boolean)=>{
+            this.pollLoop();
+            this.sendLoop();
+        });
     }
 
     private cmConnectCallback(ap:CM.AP|null,net:CM.Network|null,newConnection:boolean): void {

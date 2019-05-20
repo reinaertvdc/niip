@@ -1,4 +1,4 @@
-import {Client, connect, IClientOptions, QoS, ISubscriptionGrant, IPublishPacket, Packet} from 'mqtt';
+import {Client, connect, IClientOptions, QoS, ISubscriptionGrant, Packet} from 'mqtt';
 import { EventEmitter } from 'events';
 import {sleep} from './sleep-util';
 
@@ -12,7 +12,7 @@ export class MQTT extends EventEmitter {
     private _options: IClientOptions;
     private _client: Client|null = null;
     private _connecting: boolean = false;
-    private _topics: Array<{topic:string,qos:QoS}> = [];
+    private _topics: Array<{topic:string,qos:QoS,callback:(topic:string,payload:Buffer)=>void|Promise<void>}> = [];
 
     public constructor(url: string, options: IClientOptions = {}) {
         super();
@@ -27,6 +27,20 @@ export class MQTT extends EventEmitter {
             this._client.removeListener('offline', this.clientListener);
             this._client.removeListener('close', this.clientListener);
             this.disconnect();
+        }
+    }
+
+    private async messageListener(topic: string, payload: Buffer, packet: Packet): Promise<void> {
+        // console.log('MESSAGE START');
+        // console.log(topic);
+        // console.log(payload);
+        // console.log(packet);
+        // console.log('MESSAGE END');
+        for (let i: number = 0; i < this._topics.length; i++) {
+            if (this._topics[i].topic === topic) {
+                this._topics[i].callback(topic, payload);
+                return;
+            }
         }
     }
 
@@ -89,6 +103,7 @@ export class MQTT extends EventEmitter {
                     that._client.on('offline', that.clientListener);
                     that._client.on('close', that.clientListener);
                     that._connecting = false;
+                    that._client.on('message', that.messageListener.bind(that));
                     resolve(true);
                 }
             }
@@ -97,8 +112,17 @@ export class MQTT extends EventEmitter {
     }
 
     public async connect(): Promise<boolean> {
+        let oldConnected: boolean = (this._client !== null && !this._connecting && this._client.connected);
         let connected: boolean = await this.innerConnect();
         if (connected) {
+            if (!oldConnected) {
+                let p: Array<Promise<boolean>> = [];
+                for (let i: number = 0; i < this._topics.length; i++) {
+                    let topic = this._topics[i];
+                    p.push(this.innerSubscribe(topic.topic, topic.qos));
+                }
+                await Promise.all(p);
+            }
             this.emit('connect');
         }
         return connected;
@@ -120,6 +144,7 @@ export class MQTT extends EventEmitter {
                     that._client.removeListener('end', tmpcb);
                     that._client.removeListener('offline', tmpcb);
                     that._client.removeListener('close', tmpcb);
+                    that._client.removeAllListeners('message');
                     that._client = null;
                 }
                 that.emit('disconnect');
@@ -207,19 +232,19 @@ export class MQTT extends EventEmitter {
         });
     }
 
-    public async subscribe(topic: string, qos: QoS = 0): Promise<boolean> {
+    public async subscribe(topic: string, qos: QoS = 0, callback: (topic:string,payload:Buffer)=>void|Promise<void>): Promise<boolean> {
         for (let i: number = 0; i < this._topics.length; i++) {
             if (this._topics[i].topic === topic) { return true; }
         }
         if (this._client === null || this._client === undefined || this._connecting) {
-            this._topics.push({topic:topic,qos:qos});
+            this._topics.push({topic:topic,qos:qos,callback:callback});
             return false;
         }
         let subSuccess: boolean = await this.innerSubscribe(topic, qos);
         if (!subSuccess) {
             return false;
         }
-        this._topics.push({topic:topic,qos:qos});
+        this._topics.push({topic:topic,qos:qos,callback:callback});
         return true;
     }
 
