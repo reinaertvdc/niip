@@ -148,6 +148,7 @@ export class DataRouter {
     private async pollLoop(): Promise<void> {
         let uuid: string = uuidv4();
         let provider = DataProvider.getInstance();
+        // let tmpIndex: number = 0;
         while (true) {
             let sourcesMap = provider.getSources();
             let sources: string[] = [];
@@ -158,6 +159,8 @@ export class DataRouter {
             let timestamp: number = Date.now();
             let data: Data = new Data(uuid, timestamp, tmp);
             this.send(data);
+            // tmpIndex++;
+            // console.log(tmpIndex);
             await sleep(1000);
         }
     }
