@@ -8,8 +8,6 @@ import { sleep } from './sleep-util';
 import { NumericBase64 } from './base64-helper'
 import { DataProvider } from '../data-provider/data-provider';
 
-const uuidv4 = require('uuid/v4');
-
 
 const PG_HOST = '127.0.0.1';
 const PG_PORT = 5432;
@@ -31,14 +29,12 @@ export class Data {
     //TODO: remove stream
 
     private _id: number|null;
-    private _uuid: string;
     private _timestamp: number;
     private _data: {};
     private _urgency: DataUrgency = DataUrgency.WHENEVER;
 
-    public constructor(streamUuid: string, timestamp: number,data: {}, urgency: DataUrgency = DataUrgency.WHENEVER, id: number|null = null) {
+    public constructor(timestamp: number,data: {}, urgency: DataUrgency = DataUrgency.WHENEVER, id: number|null = null) {
         this._id = id;
-        this._uuid = streamUuid;
         this._timestamp = timestamp;
         this._data = data;
         this._urgency = urgency;
@@ -46,10 +42,6 @@ export class Data {
 
     public get id(): number|null {
         return this._id;
-    }
-
-    public get streamUuid(): string {
-        return this._uuid;
     }
 
     public get timestamp(): number {
@@ -156,20 +148,23 @@ export class DataRouter {
     }
 
     private async pollLoop(): Promise<void> {
-        let uuid: string = uuidv4();
         let provider = DataProvider.getInstance();
-        while (true) {
-            let sourcesMap = provider.getSources();
-            let sources: string[] = [];
-            for (let i: number = 0; i < sourcesMap.length; i++) {
-                sources.push(sourcesMap[i].key);
-            }
-            let tmp: {} = await provider.getMultipleData(sources);
-            let timestamp: number = Date.now();
-            let data: Data = new Data(uuid, timestamp, tmp);
-            this.send(data);
-            await sleep(0);
+        let sourcesMap = provider.getSources();
+        let sources: string[] = [];
+        for (let i: number = 0; i < sourcesMap.length; i++) {
+            sources.push(sourcesMap[i].key);
         }
+        let tmp: {} = await provider.getMultipleData(sources);
+        let timestamp: number = Date.now();
+        let data: Data = new Data(timestamp, tmp);
+        this.send(data);
+        provider.on('new-data', ((key:string)=>{
+            provider.getData(key).then(((tmp: {})=>{
+                let timestamp: number = Date.now();
+                let data: Data = new Data(timestamp, tmp);
+                this.send(data);
+            }).bind(this));
+        }).bind(this));
     }
 
     private async sendLoop(): Promise<void> {
@@ -300,7 +295,7 @@ class DataBuffer {
         const client = await this._pg.connect();
         let insertedId: number = -1;
         try {
-            let result = await client.query('INSERT INTO buffer (stream,timestamp,data,urgency) VALUES ($1, to_timestamp($2), $3, $4) RETURNING id', [data.streamUuid, data.timestamp, JSON.stringify(data.data), data.urgency]);
+            let result = await client.query('INSERT INTO buffer (timestamp,data,urgency) VALUES (to_timestamp($1), $2, $3) RETURNING id', [data.timestamp, JSON.stringify(data.data), data.urgency]);
             if (result.rows.length > 0) {
                 insertedId = result.rows[0].id;
             }
@@ -315,17 +310,16 @@ class DataBuffer {
         return true;
     }
 
-    //TODO: return grouped data
     public async peek(minUrgency: DataUrgency = DataUrgency.WHENEVER, maxUrgency: DataUrgency = DataUrgency.ASAP, count: number = 100): Promise<Array<Data>> {
         const client = await this._pg.connect();
         let ret: Array<Data> = [];
         let curU: DataUrgency = maxUrgency;
         while (curU >= minUrgency && ret.length < count) {
             try {
-                let result = await client.query('select id, stream, date_part(\'epoch\',timestamp) as timestamp, data, urgency from buffer where urgency = $1 order by id fetch first $2 rows only;', [curU, count-ret.length]);
+                let result = await client.query('select id, date_part(\'epoch\',timestamp) as timestamp, data, urgency from buffer where urgency = $1 order by id fetch first $2 rows only;', [curU, count-ret.length]);
                 for (let i: number = 0; i < result.rows.length; i++) {
                     let tmp: {id: number, stream: string, timestamp: number, data: Object, urgency: DataUrgency} = result.rows[i];
-                    let data: Data = new Data(tmp.stream, tmp.timestamp, tmp.data, tmp.urgency, tmp.id);
+                    let data: Data = new Data(tmp.timestamp, tmp.data, tmp.urgency, tmp.id);
                     ret.push(data);
                 }
             } catch (e) {

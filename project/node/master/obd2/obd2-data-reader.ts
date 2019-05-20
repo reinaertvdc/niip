@@ -222,7 +222,7 @@ class OBD2DataReader extends EventEmitter {
 			this.bufferedData.set(data[i].pid, data[i].value.data);
 		}
 
-		this.emit("new-data", pids)
+		this.emit("update", pids)
 	}
 }
 
