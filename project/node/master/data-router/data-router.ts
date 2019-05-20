@@ -1,7 +1,6 @@
 #!/usr/bin/env ts-node
 
 import * as CM from './connection-manager';
-import * as BSON from 'bson';
 import { Pool } from 'pg';
 import { MQTT } from './mqtt-helper';
 import { sleep } from './sleep-util';
@@ -25,8 +24,6 @@ export enum DataUrgency {
 
 
 export class Data {
-
-    //TODO: remove stream
 
     private _id: number|null;
     private _timestamp: number;
@@ -117,7 +114,7 @@ export class DataRouter {
             this._cm = new CM.ConnectionManager(arg);
         }
         this._cm.on('connect', this.cmConnectCallback.bind(this));
-        this._mqtt = new MQTT('mqtts://mqtt.logitrack.tk', {
+        this._mqtt = new MQTT('mqtts://logitrack.tk', {
             username: this._username,
             clientId: this._clientid,
             password: this._password,
@@ -161,7 +158,9 @@ export class DataRouter {
         provider.on('new-data', ((key:string)=>{
             provider.getData(key).then(((tmp: {})=>{
                 let timestamp: number = Date.now();
-                let data: Data = new Data(timestamp, tmp);
+                let actualData = {};
+                actualData[key] = tmp;
+                let data: Data = new Data(timestamp, actualData);
                 this.send(data);
             }).bind(this));
         }).bind(this));
@@ -280,6 +279,7 @@ export class DataRouter {
 class DataBuffer {
 
     private _pg: Pool;
+    private _tableChecked: boolean = false;
 
     public constructor(pgUser: string, pgPassword: string, pgDatabase: string, pgHost: string = 'localhost', pgPort: number = 5432) {
         this._pg = new Pool({
@@ -291,7 +291,18 @@ class DataBuffer {
         });
     }
 
+    public async tableCheck(): Promise<void> {
+        if (this._tableChecked) { return; }
+        const client = await this._pg.connect();
+        try {
+            await client.query('CREATE TABLE IF NOT EXISTS buffer ( id serial PRIMARY KEY, timestamp timestamp NOT NULL, data json NOT NULL, urgency smallint NOT NULL )');
+        } catch (e) { console.error(e); }
+        client.release();
+        this._tableChecked = true;
+    }
+
     public async push(data: Data): Promise<boolean> {
+        await this.tableCheck();
         const client = await this._pg.connect();
         let insertedId: number = -1;
         try {
@@ -302,7 +313,7 @@ class DataBuffer {
         } catch (e) {
             console.error(e);
         }
-        client.release()
+        client.release();
         if (insertedId < 0) {
             return false;
         }
@@ -311,6 +322,7 @@ class DataBuffer {
     }
 
     public async peek(minUrgency: DataUrgency = DataUrgency.WHENEVER, maxUrgency: DataUrgency = DataUrgency.ASAP, count: number = 100): Promise<Array<Data>> {
+        await this.tableCheck();
         const client = await this._pg.connect();
         let ret: Array<Data> = [];
         let curU: DataUrgency = maxUrgency;
@@ -332,6 +344,7 @@ class DataBuffer {
     }
 
     public async remove(ids: Array<number>): Promise<void> {
+        await this.tableCheck();
         if (ids.length === 0) { return; }
         for (let i: number = 0; i < ids.length; i++) {
             let id: number|null = ids[i];
