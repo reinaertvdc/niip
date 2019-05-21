@@ -21,6 +21,8 @@
     "@ionic-native/core": "^5.5.1",
     "bonjour": "^3.5.0",
     "commander": "^2.20.0",
+    "mqtt": "^2.18.8",
+    "pg": "^7.11.0",
     "rxjs": "^6.5.1",
     "serialport": "^7.1.4",
     "strip-ansi": "^5.2.0",
