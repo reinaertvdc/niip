@@ -8,10 +8,10 @@ export {Network} from './wifi-manager';
 
 
 export enum APtype {
+    UNDEFINED = 0,
     WIFI,
     HOTSPOT,
     LORA,
-    UNDEFINED
 }
 
 

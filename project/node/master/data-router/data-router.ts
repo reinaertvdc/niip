@@ -12,6 +12,13 @@ const PG_PORT = 5432;
 const PG_USER = 'logitrack';
 const PG_PASSWORD = 'logitrack';
 const PG_DATABASE = 'logitrack';
+const PG: PgDetails = {
+    host: PG_HOST,
+    port: PG_PORT,
+    user: PG_USER,
+    password: PG_PASSWORD,
+    database: PG_DATABASE,
+}
 
 
 export enum DataUrgency {
@@ -71,9 +78,20 @@ export class Data {
 }
 
 
+interface PgDetails {
+    host: string,
+    port: number,
+    user: string,
+    password: string,
+    database: string,
+}
+
+
 export class DataRouter {
 
-    private _buffer: DataBuffer = new DataBuffer(PG_USER, PG_PASSWORD, PG_DATABASE, PG_HOST, PG_PORT);
+    private _pg: Pool;
+
+    private _buffer: DataBuffer;
     private _cm: CM.ConnectionManager;
 
     private _mqtt: MQTT;
@@ -89,6 +107,14 @@ export class DataRouter {
     public constructor(clientid: number, password: string, wifiIfacePrimary: Array<string>)
     public constructor(clientid: number, password: string, cm: CM.ConnectionManager)
     public constructor(clientid: number, password: string, arg: CM.ConnectionManager|Array<string>|null = null) {
+        this._pg = new Pool({
+            host: PG.host,
+            port: PG.port,
+            user: PG.user,
+            password: PG.password,
+            database: PG.database,
+        });
+        this._buffer = new DataBuffer(this._pg);
         this._username = NumericBase64.fromNumber(clientid);
         this._clientid = NumericBase64.fromNumber(clientid);
         this._password = password;
@@ -174,7 +200,35 @@ export class DataRouter {
     }
 
     private async initializeAPsFromDatabase(): Promise<boolean> {
-        return false;
+        let client = await this._pg.connect();
+        try {
+            await client.query('CREATE TABLE IF NOT EXISTS ap ( ssid character varying(32) PRIMARY KEY, psk character(10) NOT NULL, type smallint NOT NULL, cost numeric NOT NULL, speed numeric NOT NULL )');
+        } catch (e) {
+            console.error(e);
+            return false;
+        }
+        client.release();
+        client = await this._pg.connect();
+        let result = undefined;
+        try {
+            result = await client.query('select ssid, psk, type, cost, speed from ap');
+        } catch (e) {
+            console.error(e);
+            return false;
+        }
+        client.release();
+        if (result !== undefined && result.rows !== undefined) {
+            for (let i: number = 0; i < result.rows.length; i++) {
+                let ssid: string = result.rows[i].ssid;
+                let psk: string = result.rows[i].psk;
+                let type: CM.APtype = result.rows[i].type;
+                let cost: number = parseInt(result.rows[i].cost, 10);
+                let speed: number = parseInt(result.rows[i].speed, 10);
+                let ap = new CM.AP(type, ssid, psk, cost, speed);
+                this._cm.addAP(ap);
+            }
+        }
+        return true;
     }
 
     private cmConnectCallback(ap:CM.AP|null,net:CM.Network|null,newConnection:boolean): void {
@@ -329,14 +383,8 @@ class DataBuffer {
     private _pg: Pool;
     private _tableChecked: boolean = false;
 
-    public constructor(pgUser: string, pgPassword: string, pgDatabase: string, pgHost: string = 'localhost', pgPort: number = 5432) {
-        this._pg = new Pool({
-            host: pgHost,
-            port: pgPort,
-            user: pgUser,
-            password: pgPassword,
-            database: pgDatabase,
-        });
+    public constructor(pg: Pool) {
+        this._pg = pg;
     }
 
     public async tableCheck(): Promise<void> {
