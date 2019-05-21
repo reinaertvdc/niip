@@ -87,8 +87,33 @@ export class ConnectionManager extends EventEmitter {
     }
 
     public addAP(ap: AP): ConnectionManager {
+        for (let i: number = 0; i < this._aps.length; i++) {
+            let tmp = this._aps[i];
+            if (tmp.ssid === ap.ssid) {
+                this._aps[i] = ap;
+                if (this._ap.ssid === ap.ssid) {
+                    this._ap = ap;
+                }
+                return this;
+            }
+        }
         this._aps.push(ap);
         return this;
+    }
+
+    public removeAP(ssid: string): Array<AP> {
+        let removed: Array<AP> = [];
+        for (let i: number = this._aps.length -1; i >= 0; i--) {
+            let ap = this._aps[i];
+            if (ap.ssid === ssid) {
+                this._aps.splice(i, 1);
+                removed.push(ap);
+                if (this._ap.ssid === ssid) {
+                    this._ap = null;
+                }
+            }
+        }
+        return removed;
     }
 
     public get aps(): ReadonlyArray<AP> {

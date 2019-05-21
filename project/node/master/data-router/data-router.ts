@@ -118,46 +118,63 @@ export class DataRouter {
             this.pollLoop();
             this.sendLoop();
         });
-        this.initializeApsFromFile('ap.json');
+        this.initializeAPs();
     }
 
-    private initializeApsFromFile(filename: string) {
-        readFile(filename, 'ascii', ((err: NodeJS.ErrnoException, data: string)=>{
-            if (err) {
-                console.error(err);
-                return;
-            }
-            let o: Array<{type:'wifi'|'hotspot'|'lora',ssid:string,psk:string,cost:number,speed:number}> = [];
-            try {
-                o = JSON.parse(data);
-            } catch (e) {
-                console.error(e);
-                return;
-            }
-            if (typeof o !== 'object' || !(o instanceof Array)) {
-                return;
-            }
-            let aps: Array<CM.AP> = [];
-            for (let i: number = 0; i < o.length; i++) {
-                if (typeof o[i] !== 'object' || o[i] instanceof Array
-                        || !(o[i] instanceof Object)) { continue; }
-                if (o[i].type === undefined || typeof o[i].type !== 'string'
-                        || !['wifi','hotspot','lora'].includes(o[i].type)) { continue; }
-                if (o[i].ssid === undefined || typeof o[i].ssid !== 'string') { continue; }
-                if (o[i].psk === undefined || typeof o[i].psk !== 'string') { continue; }
-                if (o[i].cost === undefined || typeof o[i].cost !== 'number') { continue; }
-                if (o[i].speed === undefined || typeof o[i].speed !== 'number') { continue; }
-                let t: CM.APtype = CM.APtype.UNDEFINED;
-                if (o[i].type === 'wifi') { t = CM.APtype.WIFI; }
-                else if (o[i].type === 'hotspot') { t = CM.APtype.HOTSPOT; }
-                else if (o[i].type === 'lora') { t = CM.APtype.LORA; }
-                if (t === CM.APtype.UNDEFINED) { continue; }
-                aps.push(new CM.AP(t, o[i].ssid, o[i].psk, o[i].cost, o[i].speed));
-            }
-            for (let i: number = 0; i < aps.length; i++) {
-                this._cm.addAP(aps[i]);
-            }
+    private async initializeAPs(): Promise<void> {
+        return new Promise<void>(((resolve)=>{
+            this.initializeAPsFromFile('ap.json').then(((val: boolean)=>{
+                this.initializeAPsFromDatabase().then(((val: boolean)=>{
+                    resolve();
+                }).bind(this));
+            }).bind(this));
         }).bind(this));
+    }
+
+    private async initializeAPsFromFile(filename: string): Promise<boolean> {
+        return new Promise<boolean>(((resolve)=>{
+            readFile(filename, 'ascii', ((err: NodeJS.ErrnoException, data: string)=>{
+                if (err) {
+                    console.error(err);
+                    return resolve(false);
+                }
+                let o: Array<{type:'wifi'|'hotspot'|'lora',ssid:string,psk:string,cost:number,speed:number}> = [];
+                try {
+                    o = JSON.parse(data);
+                } catch (e) {
+                    console.error(e);
+                    return resolve(false);
+                }
+                if (typeof o !== 'object' || !(o instanceof Array)) {
+                    return resolve(false);
+                }
+                let aps: Array<CM.AP> = [];
+                for (let i: number = 0; i < o.length; i++) {
+                    if (typeof o[i] !== 'object' || o[i] instanceof Array
+                            || !(o[i] instanceof Object)) { continue; }
+                    if (o[i].type === undefined || typeof o[i].type !== 'string'
+                            || !['wifi','hotspot','lora'].includes(o[i].type)) { continue; }
+                    if (o[i].ssid === undefined || typeof o[i].ssid !== 'string') { continue; }
+                    if (o[i].psk === undefined || typeof o[i].psk !== 'string') { continue; }
+                    if (o[i].cost === undefined || typeof o[i].cost !== 'number') { continue; }
+                    if (o[i].speed === undefined || typeof o[i].speed !== 'number') { continue; }
+                    let t: CM.APtype = CM.APtype.UNDEFINED;
+                    if (o[i].type === 'wifi') { t = CM.APtype.WIFI; }
+                    else if (o[i].type === 'hotspot') { t = CM.APtype.HOTSPOT; }
+                    else if (o[i].type === 'lora') { t = CM.APtype.LORA; }
+                    if (t === CM.APtype.UNDEFINED) { continue; }
+                    aps.push(new CM.AP(t, o[i].ssid, o[i].psk, o[i].cost, o[i].speed));
+                }
+                for (let i: number = 0; i < aps.length; i++) {
+                    this._cm.addAP(aps[i]);
+                }
+                return resolve(true);
+            }).bind(this));
+        }).bind(this));
+    }
+
+    private async initializeAPsFromDatabase(): Promise<boolean> {
+        return false;
     }
 
     private cmConnectCallback(ap:CM.AP|null,net:CM.Network|null,newConnection:boolean): void {
