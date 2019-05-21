@@ -1,11 +1,10 @@
-#!/usr/bin/env ts-node
-
 import * as CM from './connection-manager';
 import { Pool } from 'pg';
 import { MQTT } from './mqtt-helper';
 import { sleep } from './sleep-util';
 import { NumericBase64 } from './base64-helper'
 import { DataProvider } from '../data-provider/data-provider';
+import { readFile } from 'fs';
 
 
 const PG_HOST = '127.0.0.1';
@@ -68,10 +67,6 @@ export class Data {
     public get jsonBuffer(): Buffer {
         return Buffer.from(this.jsonString);
     }
-
-    // public get bson(): Buffer {
-    //     return BSON.serialize(this.toJsonObject());
-    // }
     
 }
 
@@ -82,10 +77,6 @@ export class DataRouter {
     private _cm: CM.ConnectionManager;
 
     private _mqtt: MQTT;
-
-    private _connectionAvailable: boolean = false;
-    private _connectionChanged: boolean = false;
-    private _connectionCanUseMqtt: boolean = false;
 
     private _username: string;
     private _clientid: string;
@@ -127,6 +118,46 @@ export class DataRouter {
             this.pollLoop();
             this.sendLoop();
         });
+        this.initializeApsFromFile('ap.json');
+    }
+
+    private initializeApsFromFile(filename: string) {
+        readFile(filename, 'ascii', ((err: NodeJS.ErrnoException, data: string)=>{
+            if (err) {
+                console.error(err);
+                return;
+            }
+            let o: Array<{type:'wifi'|'hotspot'|'lora',ssid:string,psk:string,cost:number,speed:number}> = [];
+            try {
+                o = JSON.parse(data);
+            } catch (e) {
+                console.error(e);
+                return;
+            }
+            if (typeof o !== 'object' || !(o instanceof Array)) {
+                return;
+            }
+            let aps: Array<CM.AP> = [];
+            for (let i: number = 0; i < o.length; i++) {
+                if (typeof o[i] !== 'object' || o[i] instanceof Array
+                        || !(o[i] instanceof Object)) { continue; }
+                if (o[i].type === undefined || typeof o[i].type !== 'string'
+                        || !['wifi','hotspot','lora'].includes(o[i].type)) { continue; }
+                if (o[i].ssid === undefined || typeof o[i].ssid !== 'string') { continue; }
+                if (o[i].psk === undefined || typeof o[i].psk !== 'string') { continue; }
+                if (o[i].cost === undefined || typeof o[i].cost !== 'number') { continue; }
+                if (o[i].speed === undefined || typeof o[i].speed !== 'number') { continue; }
+                let t: CM.APtype = CM.APtype.UNDEFINED;
+                if (o[i].type === 'wifi') { t = CM.APtype.WIFI; }
+                else if (o[i].type === 'hotspot') { t = CM.APtype.HOTSPOT; }
+                else if (o[i].type === 'lora') { t = CM.APtype.LORA; }
+                if (t === CM.APtype.UNDEFINED) { continue; }
+                aps.push(new CM.AP(t, o[i].ssid, o[i].psk, o[i].cost, o[i].speed));
+            }
+            for (let i: number = 0; i < aps.length; i++) {
+                this._cm.addAP(aps[i]);
+            }
+        }).bind(this));
     }
 
     private cmConnectCallback(ap:CM.AP|null,net:CM.Network|null,newConnection:boolean): void {
@@ -362,6 +393,9 @@ class DataBuffer {
 
 }
 
+
+// EXAMPLE USAGE BELOW
+//
 // let login: any = JSON.parse(readFileSync('login.json', 'ascii'));
 // if (login === undefined || login.id === undefined || login.password === undefined || typeof login.id !== 'number' || typeof login.password !== 'string') {
 //     console.log('CRITICAL! No username/password specified');
@@ -371,11 +405,11 @@ class DataBuffer {
 // else {
 //     let cm: CM.ConnectionManager = new CM.ConnectionManager(['wlp3s0','wlan0'], 'LogiTrack-'+login.id, login.password, null, 5000);
 //     let dr = new DataRouter(login.id, login.password, cm);
-
-//     dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
-//     dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
-//     dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 5, 10));
-
+//
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, '<ssid>', '<psk>', <cost>, <speed>));
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.WIFI, '<ssid>', '<psk>', <cost>, <speed>));
+//     dr.connectionManager.addAP(new CM.AP(CM.APtype.HOTSPOT, '<ssid>', '<psk>', <cost>, <speed>));
+//
 //     setTimeout(()=>{
 //         for (let i: number = 0; i < 50000; i++) {
 //             dr.send(new Data(uuidv4(), Date.now(), {test: 'abc'}, DataUrgency.WHENEVER));

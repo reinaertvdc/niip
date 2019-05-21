@@ -151,10 +151,6 @@ else {
 	}
 	let connector = new ConnectionManager(ifaces, 'LogiTrack-'+id, password, '10.10.10.1');
 	let router = new DataRouter(id, password, connector);
-	//TODO: move AP details to file
-	connector.addAP(new AP(APtype.WIFI, 'cw-2.4', '9edFrBDobS', 0, 120));
-    connector.addAP(new AP(APtype.WIFI, 'telenet-A837A-extended', '57735405', 0, 50));
-    connector.addAP(new AP(APtype.HOTSPOT, 'XT1635-02 4458', 'shagra2018', 5, 10));
 	//TODO: request extra AP details from server
 }
 

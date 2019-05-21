@@ -1,0 +1,23 @@
+[
+    {
+        "type": "wifi",
+        "ssid": "example-wifi",
+        "psk": "abcdefghij",
+        "cost": 0,
+        "speed": 120
+    },
+    {
+        "type": "hotspot",
+        "ssid": "example-hotspot",
+        "psk": "abcdefghij",
+        "cost": 5,
+        "speed": 10
+    },
+    {
+        "type": "lora",
+        "ssid": "example-lora",
+        "psk": "abcdefghij",
+        "cost": 50,
+        "speed": 0.01
+    }
+]
