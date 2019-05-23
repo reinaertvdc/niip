@@ -20,10 +20,11 @@ class LoRaHelper:
             self._air_time_base = tmp
         self._air_time = self._air_time_base
         self._sock = None
-        self._lora = LoRa(mode=LoRa.LORAWAN)
+        self._lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868)
         if self._led:
             pycom.rgbled(0x500000)
         if self._debug:
+            print('LoRaHelper (debug): LoRa MAC: ' + str(binascii.hexlify(self._lora.mac())))
             print('LoRaHelper (debug): Joining network ...')
         self._lora.join(activation=LoRa.OTAA, auth=(self._app_eui, self._app_key), timeout=0)
         tmp_on = True

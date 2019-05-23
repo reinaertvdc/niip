@@ -8,7 +8,7 @@ import ubinascii as binascii
 
 from LoRaHelper import LoRaHelper
 
-lora = LoRaHelper('70B3D57ED001B0F1', '8DA915F8B2C27FADB377C67C63E20CF1')
+lora = LoRaHelper('70B3D57ED001B0F1', '3AE1A6FABA8807F104A5745ACBD1EBBF')
 print('LoRa MAC: ' + lora.mac())
 if not lora.has_joined():
     sys.exit(-1)
