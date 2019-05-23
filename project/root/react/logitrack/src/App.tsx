@@ -39,6 +39,15 @@ export default class App extends React.Component<IAppProps, IAppState> {
     console.log(this.state);
   }
 
+  private setLogout = () => {
+    this.setState({
+      type: 'node',
+      // id: '',
+      // password: '',
+      loggedIn: false
+    });
+  }
+
   public render() {
     if (this.state.loggedIn) {
       return (
@@ -46,7 +55,7 @@ export default class App extends React.Component<IAppProps, IAppState> {
           <Switch>
             <Route exact path="/login" component={Login}><Redirect to='/' /></Route>
             <Route path="/">
-              <DashBoard dashboardType={this.state.type}></DashBoard>
+              <DashBoard onLogout={this.setLogout} dashboardType={this.state.type}></DashBoard>
             </Route>
           </Switch>
         </Router>
