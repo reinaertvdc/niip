@@ -1,4 +1,4 @@
-import * as WebSocket from "ws";
+import WebSocket from "ws";
 
 class DataProviderClient {
     // Hosts in string form
