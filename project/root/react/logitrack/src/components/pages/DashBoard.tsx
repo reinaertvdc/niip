@@ -1,11 +1,11 @@
 import * as React from 'react';
 import DashBoardAdmin from './DashBoardAdmin';
 import DashBoardCompany from './DashBoardCompany';
-import DashBoardNode from './DashBoardNode';
-import { Link } from 'react-router-dom';
+import { Link, Redirect, Switch, Route } from 'react-router-dom';
 
 export interface IDashBoardProps {
-  dashboardType: 'admin'|'company'|'node',
+  dashType: 'admin'|'company',
+  dashId: number,
   onLogout: () => void
 }
 
@@ -27,7 +27,7 @@ export default class DashBoard extends React.Component<IDashBoardProps, IDashBoa
   }
 
   public render() {
-    if (this.props.dashboardType === 'admin') {
+    if (this.props.dashType === 'admin') {
       return (
         <div>
           <Link to="/" onClick={this.onLogout}>Logout</Link><br />
@@ -35,20 +35,17 @@ export default class DashBoard extends React.Component<IDashBoardProps, IDashBoa
         </div>
       );
     }
-    else if (this.props.dashboardType === 'company') {
+    else if (this.props.dashType === 'company') {
+      console.log('REDIR');
       return (
-        <div>
-          <Link to="/" onClick={this.onLogout}>Logout</Link><br />
-          <DashBoardCompany />
-        </div>
-      );
-    }
-    else if (this.props.dashboardType === 'node') {
-      return (
-        <div>
-          <Link to="/" onClick={this.onLogout}>Logout</Link><br />
-          <DashBoardNode />
-        </div>
+        <Switch>
+          <Route path="/dashboard/:id">
+            <DashBoardCompany />
+          </Route>
+          <Route path="/dashboard">
+            <Redirect to={'/dashboard/'+this.props.dashId} />
+          </Route>
+        </Switch>
       );
     }
     else {

@@ -2,11 +2,11 @@ import * as React from 'react';
 
 
 export interface ILoginProps {
-  onLogin: (loggedIn: boolean, type: 'admin'|'company'|'node') => void
+  onLogin: (loggedIn: boolean, type: 'admin'|'company', id: number) => void
 }
 
 export interface ILoginState {
-  type: 'admin'|'company'|'node',
+  type: 'admin'|'company',
   id: string,
   password: string
 }
@@ -24,7 +24,7 @@ export default class Login extends React.Component<ILoginProps, ILoginState> {
 
   private onChangeType = (e: React.FormEvent<HTMLSelectElement>) => {
     let val = e.currentTarget.value;
-    if (typeof val === 'string' && (val === 'admin' || val === 'company' || val === 'node')) {
+    if (typeof val === 'string' && (val === 'admin' || val === 'company')) {
       this.setState({
         type: val
       })
@@ -45,7 +45,7 @@ export default class Login extends React.Component<ILoginProps, ILoginState> {
 
   private onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     //TODO: check login details with server (request session etc)
-    this.props.onLogin(true, this.state.type);
+    this.props.onLogin(true, this.state.type, parseInt(this.state.id));
     e.preventDefault();
   }
 

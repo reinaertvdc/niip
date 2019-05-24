@@ -1,77 +1,54 @@
 import * as React from 'react';
-import { BrowserRouter as Router, Route, Switch, Redirect } from 'react-router-dom';
 
-import Login from './components/pages/Login'
-import DashBoard from './components/pages/DashBoard';
+import { Firebase, FirebaseContext } from './components/firebase';
+import { LoginState } from './components/firebase/firebase';
+// import withFireBaseAuth from 'react-with-firebase-auth';
+// import { firebaseConfig } from './components/firebase/firebaseConfig';
 
+
+// import { Line } from 'react-chartjs-2';
 
 export interface IAppProps {
 }
 
 export interface IAppState {
-  type: 'admin'|'company'|'node',
-  // id: string,
-  // password: string,
-  loggedIn: boolean
 }
 
 export default class App extends React.Component<IAppProps, IAppState> {
+  
+
   constructor(props: IAppProps) {
     super(props);
 
     this.state = {
-      type: 'node',
-      // id: '',
-      // password: '',
-      loggedIn: false
+      
     }
-  }
-
-  private setLogin = (loggedIn: boolean, type: 'admin'|'company'|'node') => {
-    console.log('LOGGED IN');
-    this.setState({
-      type: type,
-      // id: id,
-      // password: password,
-      loggedIn: loggedIn
-    });
-    console.log('LOGGED IN 2');
-    console.log(this.state);
-  }
-
-  private setLogout = () => {
-    this.setState({
-      type: 'node',
-      // id: '',
-      // password: '',
-      loggedIn: false
-    });
   }
 
   public render() {
-    if (this.state.loggedIn) {
-      return (
-        <Router>
-          <Switch>
-            <Route exact path="/login" component={Login}><Redirect to='/' /></Route>
-            <Route path="/">
-              <DashBoard onLogout={this.setLogout} dashboardType={this.state.type}></DashBoard>
-            </Route>
-          </Switch>
-        </Router>
-      );
-    }
-    else {
-      return (
-        <Router>
-          <Switch>
-            <Route exact path="/login">
-              <Login onLogin={this.setLogin}></Login>
-            </Route>
-            <Route path="/"><Redirect to='/login' /></Route>
-          </Switch>
-        </Router>
-      );
-    }
+    return (
+      <FirebaseContext.Consumer>
+        {(firebase: Firebase|null) => {
+          if (firebase === null || firebase.state === LoginState.LOGGED_OUT) {
+            return (
+              <div>LOGIN</div>
+            )
+          }
+          else {
+            // if (firebase !== null) {
+            //   firebase.loginEmailPassword('cwout.coenen@gmail.com', 'tes234');
+            // }
+            return (
+              <div>TEST</div>
+            )
+          }
+        }}
+      </FirebaseContext.Consumer>
+    );
+    
+    // return (null);
+    // let labels = ['74','79','99','78','85','88','76','93','84','91','98','80','75','95','77','100','70','94','90','82','83','71','86','72','87','89','96','97','81','73','92','74','79','99','78','85','88','76','93','84','91','98','80','75','95','77','100','70','94','90','82','83','71','86','72','87','89','96','97','81','73','92','74','79','99','78','85','88','76','93','84','91','98','80','75','95','77','100','70','94','90','82','83','71','86','72','87','89','96','97','81','73','92','74','79','99','78','85','88','76','93','84','91','98','80','75','95','77','100','70','94','90','82','83','71','86','72','87','89'];
+    // let data = [74,79,99,78,85,88,76,93,84,91,98,80,75,95,77,100,70,94,90,82,83,71,86,72,87,89,96,97,81,73,92,74,79,99,78,85,88,76,93,84,91,98,80,75,95,77,100,70,94,90,82,83,71,86,72,87,89,96,97,81,73,92,74,79,99,78,85,88,76,93,84,91,98,80,75,95,77,100,70,94,90,82,83,71,86,72,87,89,96,97,81,73,92,74,79,99,78,85,88,76,93,84,91,98,80,75,95,77,100,70,94,90,82,83,71,86,72,87,89];
+    // <Line data={{labels: labels, datasets:[{data:data}]}} />
   }
 }
