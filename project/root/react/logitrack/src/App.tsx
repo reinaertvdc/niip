@@ -1,54 +1,64 @@
-import * as React from 'react';
+import * as React from "react";
+import { BrowserRouter, Route, Switch, Redirect } from "react-router-dom";
+import * as routes from "./constants/routes";
+import { firebase } from "./firebase";
+import { withAuthentication } from "./firebase/withAuthentication";
+import { Account } from "./pages/Account";
+import { PasswordForget } from "./pages/PasswordForget";
+import { SignIn } from "./pages/SignIn";
+import { Navigation } from "./components/Navigation";
+import { AuthUserContext } from "./firebase/AuthUserContext";
+import { Dashboard } from "./pages/Dashboard";
 
-import { Firebase, FirebaseContext } from './components/firebase';
-import { LoginState } from './components/firebase/firebase';
-// import withFireBaseAuth from 'react-with-firebase-auth';
-// import { firebaseConfig } from './components/firebase/firebaseConfig';
-
-
-// import { Line } from 'react-chartjs-2';
-
-export interface IAppProps {
-}
-
-export interface IAppState {
-}
-
-export default class App extends React.Component<IAppProps, IAppState> {
-  
-
-  constructor(props: IAppProps) {
+class AppComponent extends React.Component {
+  constructor(props: any) {
     super(props);
 
     this.state = {
-      
-    }
+      authUser: null
+    };
+  }
+
+  public componentDidMount() {
+    firebase.auth.onAuthStateChanged(authUser => {
+      authUser
+        ? this.setState(() => ({ authUser }))
+        : this.setState(() => ({ authUser: null }));
+    });
   }
 
   public render() {
     return (
-      <FirebaseContext.Consumer>
-        {(firebase: Firebase|null) => {
-          if (firebase === null || firebase.state === LoginState.LOGGED_OUT) {
-            return (
-              <div>LOGIN</div>
-            )
-          }
-          else {
-            // if (firebase !== null) {
-            //   firebase.loginEmailPassword('cwout.coenen@gmail.com', 'tes234');
-            // }
-            return (
-              <div>TEST</div>
-            )
-          }
-        }}
-      </FirebaseContext.Consumer>
+      <AuthUserContext.Consumer>
+          {authUser => (authUser ? <this.AppAuth /> : <this.AppNonAuth />)}
+      </AuthUserContext.Consumer>
     );
-    
-    // return (null);
-    // let labels = ['74','79','99','78','85','88','76','93','84','91','98','80','75','95','77','100','70','94','90','82','83','71','86','72','87','89','96','97','81','73','92','74','79','99','78','85','88','76','93','84','91','98','80','75','95','77','100','70','94','90','82','83','71','86','72','87','89','96','97','81','73','92','74','79','99','78','85','88','76','93','84','91','98','80','75','95','77','100','70','94','90','82','83','71','86','72','87','89','96','97','81','73','92','74','79','99','78','85','88','76','93','84','91','98','80','75','95','77','100','70','94','90','82','83','71','86','72','87','89'];
-    // let data = [74,79,99,78,85,88,76,93,84,91,98,80,75,95,77,100,70,94,90,82,83,71,86,72,87,89,96,97,81,73,92,74,79,99,78,85,88,76,93,84,91,98,80,75,95,77,100,70,94,90,82,83,71,86,72,87,89,96,97,81,73,92,74,79,99,78,85,88,76,93,84,91,98,80,75,95,77,100,70,94,90,82,83,71,86,72,87,89,96,97,81,73,92,74,79,99,78,85,88,76,93,84,91,98,80,75,95,77,100,70,94,90,82,83,71,86,72,87,89];
-    // <Line data={{labels: labels, datasets:[{data:data}]}} />
   }
+
+  private AppAuth = () => (
+    <BrowserRouter>
+      <div>
+        <Navigation />
+        <hr />
+        <Switch>
+          <Route exact={true} path={routes.DASHBOARD} component={Dashboard} />
+          <Route exact={true} path={routes.SIGN_IN}><Redirect to={routes.DASHBOARD} /></Route>
+          <Route exact={true} path={routes.ACCOUNT} component={Account} />
+        </Switch>
+      </div>
+    </BrowserRouter>
+  );
+
+  private AppNonAuth = () => (
+    <BrowserRouter>
+      <Switch>
+        <Route exact={true} path={routes.SIGN_IN} component={SignIn} />
+        <Route exact={true} path={routes.PASSWORD_FORGET}><Navigation /><hr /><PasswordForget /></Route> />
+        <Route exact={false}><Redirect to={routes.SIGN_IN} /></Route>
+      </Switch>
+    </BrowserRouter>
+  );
+
 }
+
+export const App = withAuthentication(AppComponent);
