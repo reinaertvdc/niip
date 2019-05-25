@@ -1,5 +1,6 @@
 import * as React from "react";
 import { auth } from "../../firebase";
+import { Redirect } from "react-router";
 
 interface InterfaceProps {
   error?: any;
@@ -9,9 +10,10 @@ interface InterfaceProps {
 }
 
 interface InterfaceState {
-  error?: any;
+  error?: Error;
   passwordOne?: string;
   passwordTwo?: string;
+  redir?: string;
 }
 
 export class PasswordChangeForm extends React.Component<
@@ -19,9 +21,10 @@ export class PasswordChangeForm extends React.Component<
   InterfaceState
 > {
   private static INITIAL_STATE = {
-    error: null,
+    error: undefined,
     passwordOne: "",
-    passwordTwo: ""
+    passwordTwo: "",
+    redir: undefined
   };
 
   private static propKey(propertyName: string, value: string): object {
@@ -38,11 +41,19 @@ export class PasswordChangeForm extends React.Component<
 
     auth
       .doPasswordUpdate(passwordOne)
-      .then(() => {
-        this.setState(() => ({ ...PasswordChangeForm.INITIAL_STATE }));
+      .then((ret: {ok:boolean,error?:Error}) => {
+        if (ret.ok) {
+          this.setState(() => ({ ...PasswordChangeForm.INITIAL_STATE, redir:'/' }));
+        }
+        else if (ret.error !== undefined) {
+          this.setState({error: ret.error});
+        }
+        else {
+          this.setState({error: new Error('Password has not been changed')});
+        }
       })
-      .catch(error => {
-        this.setState(PasswordChangeForm.propKey("error", error));
+      .catch((error: Error) => {
+        this.setState({error: error});
       });
 
     event.preventDefault();
@@ -53,6 +64,11 @@ export class PasswordChangeForm extends React.Component<
 
     const isInvalid = passwordOne !== passwordTwo || passwordOne === "";
 
+    if (this.state.redir !== undefined) {
+      return (
+        <Redirect to={this.state.redir} />
+      )
+    }
     return (
       <form onSubmit={event => this.onSubmit(event)}>
         <input
@@ -70,7 +86,6 @@ export class PasswordChangeForm extends React.Component<
         <button disabled={isInvalid} type="submit">
           Reset My Password
         </button>
-
         {error && <p>{error.message}</p>}
       </form>
     );

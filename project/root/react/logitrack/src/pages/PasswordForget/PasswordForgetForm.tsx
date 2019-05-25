@@ -35,7 +35,6 @@ export class PasswordForgetForm extends React.Component<{}, {email: string, erro
     const { email, error, done }: {email:string, error:Error|null, done: boolean} = this.state;
     const isInvalid = email === "";
 
-    console.log(Object.keys(this.state));
     if (done) {
       return <Redirect to={DASHBOARD} />
     }
