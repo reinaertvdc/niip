@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { DASHBOARD } from '../constants/routes';
-import { Company } from './CompanyList';
 
 export interface TruckNode {
   company: number,

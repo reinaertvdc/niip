@@ -1,5 +1,5 @@
 import * as React from "react";
-import { withRouter, RouteComponentProps, RouteProps } from "react-router-dom";
+import { withRouter, RouteComponentProps } from "react-router-dom";
 import { PasswordForgetLink } from "../PasswordForget";
 import { SignInForm } from "./SignInForm";
 

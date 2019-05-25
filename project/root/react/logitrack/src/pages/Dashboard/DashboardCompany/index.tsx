@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Redirect } from 'react-router';
+import { Redirect, Switch, Route } from 'react-router';
 import { DASHBOARD } from '../../../constants/routes';
 import NodeList, { TruckNode } from '../../../components/NodeList';
+import DashboardNode from './DashboardNode';
 
 export interface IDashboardCompanyProps {
   match: {
@@ -37,8 +38,14 @@ export default class DashboardCompany extends React.Component<IDashboardCompanyP
     });
   }
 
+  private async getCompanyData(): Promise<void> {
+    //TODO: get company data
+    //TODO: update state with company data
+  }
+
   public componentDidMount() {
     this.getNodeList();
+    this.getCompanyData();
   }
 
   public render() {
@@ -47,7 +54,12 @@ export default class DashboardCompany extends React.Component<IDashboardCompanyP
       return <Redirect to={DASHBOARD} />
     }
     return (
+      <Switch>
+        <Route exact={false} path={DASHBOARD+'/:company/:id'} component={DashboardNode} />
+        <Route exact={true} path={DASHBOARD+'/:company'}><NodeList nodes={this.state.nodes} /></Route>
+        <Route exact={false} path={DASHBOARD+'/:company'}><Redirect to={DASHBOARD} /></Route>
       <NodeList nodes={this.state.nodes} />
+      </Switch>
     );
   }
 }
