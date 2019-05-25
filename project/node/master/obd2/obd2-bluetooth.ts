@@ -44,16 +44,19 @@ class OBD2Bluetooth extends OBD2Base {
 
                 // We will initialise our OBD2Reader if it's not a reconnect
                 if(this.firstConnect) {
+                    console.log("Initializing reader")
                     this.firstConnect = false;
                     this.obd2Reader.init().then(() => {
                         // Once the OBD2Reader is initalised we are ready ==> resolve our promise
                         console.log("[BluetoothOBD2] Supported PIDs initalized.");
                         console.log(this.obd2Reader.getSupportedPIDs());
                         resolve();
+                        this.emit("connect");
                     });
                 }
-
-                this.emit("connect");
+                else {
+                    this.emit("connect");
+                }
             });
 
             this.bluetoothWatcher.on("disconnect", () => {
@@ -63,6 +66,8 @@ class OBD2Bluetooth extends OBD2Base {
 
             this.bluetoothWatcher.on("error", (error) => {
                 console.log("[BluetoothOBD2] Error: " + error);
+                this.emit("disconnect");
+                this.init();
             });
             
             this.bluetoothWatcher.connectToID(this.device);

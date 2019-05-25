@@ -34,6 +34,7 @@ class OBD2DataReader extends EventEmitter {
 
 	public init(): Promise<void> {
 		return new Promise<void>(async (resolve, reject) => {
+			console.log("[OBD2DataReader] Reading supported PIDs")
 			await this.readSupportedPIDs();
 			if(this.shouldBuffer)
 				await this.startRequestingData();

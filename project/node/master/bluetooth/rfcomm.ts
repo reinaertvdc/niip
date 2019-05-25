@@ -12,7 +12,7 @@ class RFCOMM extends EventEmitter {
         super();
     }
 
-    public connect(mac: string, retry: boolean = true, retries: number = 10, waitTime: number = 5000) {
+    public connect(mac: string, retry: boolean = true, retries: number = 10, waitTime: number = 10000) {
         this.killRFCOMM().then(() => {
             this.connectLoop(mac, retry, retries, waitTime);
         })

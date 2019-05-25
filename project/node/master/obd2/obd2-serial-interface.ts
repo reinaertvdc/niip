@@ -26,6 +26,7 @@ class OBD2SerialInterface implements OBD2Interface {
     }
 
     public setPort(serialPort: any) {
+        console.log("[OBD2SerialInterface] Port set")
         this.serial = serialPort;
         
         this.parser = this.serial.pipe(new Delimiter({ delimiter: "\r" }));
@@ -55,7 +56,7 @@ class OBD2SerialInterface implements OBD2Interface {
 
         this.writing = false;
         this.timeoutReference = null;
-        this.timeout = 200;
+        this.timeout = 300;
         this.timeoutIncrement = 50;
     }
 
@@ -147,6 +148,7 @@ class OBD2SerialInterface implements OBD2Interface {
     }
 
     private onData(binaryData: Buffer): void {
+        //console.log("[OBD2SerialInterface] " + binaryData.toString())
         let type: DataType = this.parseData(binaryData);
 
         if(type == DataType.Stopped) {
