@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Redirect } from 'react-router';
 import { DASHBOARD } from '../../../../constants/routes';
+import NumberGraph, {NumberGraphDataSet} from '../../../../components/NumberGraph';
 
 export interface IDashboardNodeProps {
   match: {
@@ -12,23 +13,35 @@ export interface IDashboardNodeProps {
 }
 
 export interface IDashboardNodeState {
+  tmpData: NumberGraphDataSet
 }
+
+const initialNumberGraphDataSet: NumberGraphDataSet = {label:'',points:[]}
 
 export default class DashboardNode extends React.Component<IDashboardNodeProps, IDashboardNodeState> {
   constructor(props: IDashboardNodeProps) {
     super(props);
 
     this.state = {
+      tmpData: initialNumberGraphDataSet
     }
   }
 
   private async getNodeData(): Promise<void> {
-    //TODO: get node data
-    //TODO: update state with node data
+    //TODO: get node data from API
+    this.setState({
+      tmpData: {
+        label:'speed',
+        points:[{x:1,y:1},{x:5,y:2},{x:6,y:3},{x:7,y:2}]
+      }
+    })
   }
 
   public componentDidMount() {
-    this.getNodeData();
+    //TODO: remove timeout
+    setTimeout(() => {
+      this.getNodeData();
+    }, 1000);
   }
 
   public render() {
@@ -42,7 +55,8 @@ export default class DashboardNode extends React.Component<IDashboardNodeProps, 
     }
     return (
       <div>
-        NODE
+        <NumberGraph data={this.state.tmpData} />
+        {/* <NumberGraph data={{label:'abc',points:[{x:1,y:1},{x:5,y:2},{x:6,y:3},{x:7,y:2}]}}/> */}
       </div>
     );
   }
