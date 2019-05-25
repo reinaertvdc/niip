@@ -1,9 +1,10 @@
 import * as company from "../controllers/company";
 import * as node from "../controllers/node";
-import { Dummy } from "../util/dummy";
+import { Dummy, IConfig as IDummyConfig } from "../util/dummy";
 import { Process } from "../util/process";
 
 import * as db from "./db";
+import * as mqtt from "./mqtt";
 import * as web from "./web";
 
 export interface IConfig {
@@ -12,7 +13,11 @@ export interface IConfig {
     };
     readonly services: {
         readonly db: db.IConfig;
+        readonly mqtt: mqtt.IConfig;
         readonly web: web.IConfig;
+    };
+    readonly util: {
+        readonly dummy: IDummyConfig;
     };
 }
 
@@ -23,12 +28,18 @@ export interface ICtrl {
 
 export interface ISvc {
     readonly db: db.Db;
+    readonly mqtt: mqtt.Mqtt;
     readonly web: web.Web;
+}
+
+export interface IUtil {
+    readonly dummy: Dummy;
 }
 
 export class App extends Process {
     private readonly ctrl: ICtrl;
     private readonly svc: ISvc;
+    private readonly util: IUtil;
 
     public constructor(config: IConfig) {
         super();
@@ -42,7 +53,12 @@ export class App extends Process {
 
         this.svc = Object.freeze({
             db: dbService,
+            mqtt: new mqtt.Mqtt(config.services.mqtt),
             web: new web.Web(config.services.web, this.ctrl),
+        });
+
+        this.util = Object.freeze({
+            dummy: new Dummy(config.util.dummy, this.ctrl),
         });
     }
 
@@ -52,8 +68,13 @@ export class App extends Process {
         await this.ctrl.company.init();
         await this.ctrl.node.init();
 
-        await new Dummy(this.ctrl).loadData();
+        await this.util.dummy.loadData();
+
+        await this.svc.mqtt.start();
     }
 
-    protected async onStop(): Promise<void> { await this.svc.web.stop(); }
+    protected async onStop(): Promise<void> {
+        await this.svc.mqtt.stop();
+        await this.svc.web.stop();
+    }
 }

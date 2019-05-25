@@ -3,6 +3,7 @@ import { Db } from "../services/db";
 export abstract class Model {
     // tslint:disable-next-line:no-any
     protected abstract readonly columns: any;
+    protected readonly extras: string[] = [];
     protected readonly db: Db;
     protected abstract readonly tableName: string;
 
@@ -77,6 +78,10 @@ export abstract class Model {
         keys.forEach((key: string) => {
             // tslint:disable-next-line:no-unsafe-any
             query += `${key} ${this.columns[key]}${separator}`;
+        });
+
+        this.extras.forEach((extra: string) => {
+            query += `${extra}${separator}`;
         });
 
         query = `${query.substring(0, query.length - separator.length)})`;

@@ -1,5 +1,5 @@
-import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
+import * as bcrypt from "bcryptjs";
 
 import { Db } from "../services/db";
 import { Model } from "../util/model";
@@ -20,14 +20,18 @@ export interface IProps {
 }
 
 export class Node extends Model {
-    public static readonly tableName: string = "nodes";
+    public static readonly tableName: string = "vmq_auth_acl";
 
     // tslint:disable-next-line:no-any
     protected static readonly columns: any = Object.freeze({
-        company_id:
-            `BIGINT NOT NULL REFERENCES ${company.Company.tableName}(id)`,
-        id: "BIGINT PRIMARY KEY",
-        key: "VARCHAR NOT NULL UNIQUE",
+        client_id: "CHARACTER VARYING(128) NOT NULL",
+        company_id: `BIGINT NOT NULL REFERENCES ${company.Company.tableName}(id)`,
+        id: "BIGINT NOT NULL UNIQUE",
+        mountpoint: "CHARACTER VARYING(10) NOT NULL",
+        password: "CHARACTER VARYING(128)",
+        publish_acl: "JSON",
+        subscribe_acl: "JSON",
+        username: "CHARACTER VARYING(128) NOT NULL",
     });
 
     // tslint:disable-next-line:no-any
@@ -42,17 +46,59 @@ export class Node extends Model {
     }
 
     public async create(props: IProps[]): Promise<null> {
-        const values: Array<[number, number, string]> = [];
+        const values: Array<[string, number, number, string, string, string, string, string]> = [];
 
         props.forEach((value: IProps) => {
+            const id: string = this.encodeId(value.id);
+
             values.push([
-                value.id,
+                id,
                 value.companyId,
+                value.id,
+                "",
                 bcrypt.hashSync(value.key, this.config.key.saltRounds),
+                `[{"pattern": "u/${id}"}]`,
+                `[{"pattern": "d/${id}"}]`,
+                id,
             ]);
         });
 
-        return this.insert(["id", "company_id", "key"], values);
+        return this.insert([
+            "client_id",
+            "company_id",
+            "id",
+            "mountpoint",
+            "password",
+            "publish_acl",
+            "subscribe_acl",
+            "username",
+        ], values);
+    }
+
+    public async createRoot(value: IProps, clientId: string, username: string): Promise<null> {
+        const values: Array<[string, number, number, string, string, string, string, string]> = [];
+
+        values.push([
+            clientId,
+            value.companyId,
+            value.id,
+            "",
+            bcrypt.hashSync(value.key, this.config.key.saltRounds),
+            `[{"pattern": "d/+"}]`,
+            `[{"pattern": "u/+"}]`,
+            username,
+        ]);
+
+        return this.insert([
+            "client_id",
+            "company_id",
+            "id",
+            "mountpoint",
+            "password",
+            "publish_acl",
+            "subscribe_acl",
+            "username",
+        ], values);
     }
 
     public generateKey(): string {
@@ -76,5 +122,24 @@ export class Node extends Model {
         const key: string = (await this.getById(id)).key;
 
         return bcrypt.compare(value, key);
+    }
+
+    private encodeId(plain: number) {
+        const buffer = Buffer.allocUnsafe(6);
+
+        buffer.writeIntBE(plain, 0, 6);
+
+        const base64 = buffer.toString("base64");
+        const encoded = base64.replace(/\+/g, "-").replace(/\//g, "_");
+
+        return encoded;
+    }
+
+    private decodeId(encoded: string) {
+        const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+        const buffer = Buffer.from(base64, "base64");
+        const id = buffer.readIntBE(0, 6);
+
+        return id;
     }
 }
