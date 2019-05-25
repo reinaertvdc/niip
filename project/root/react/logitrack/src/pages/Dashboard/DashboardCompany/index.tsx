@@ -55,7 +55,13 @@ export default class DashboardCompany extends React.Component<IDashboardCompanyP
     }
     return (
       <Switch>
-        <Route exact={false} path={DASHBOARD+'/:company/:id'} component={DashboardNode} />
+        <Route exact={false} path={DASHBOARD+'/:company/:id'} render={(props) => {return (
+          <div>
+            <NodeList nodes={this.state.nodes} />
+            <hr />
+            <DashboardNode {...props} />
+          </div>
+        )}} />
         <Route exact={true} path={DASHBOARD+'/:company'}><NodeList nodes={this.state.nodes} /></Route>
         <Route exact={false} path={DASHBOARD+'/:company'}><Redirect to={DASHBOARD} /></Route>
       <NodeList nodes={this.state.nodes} />

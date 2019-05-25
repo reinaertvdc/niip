@@ -39,7 +39,13 @@ class DashboardComponent extends React.Component<{}, DashboardComponentState> {
   public render() {
     return (
       <Switch>
-        <Route exact={false} path={DASHBOARD+'/:id'} component={DashboardCompany} />
+        <Route exact={false} path={DASHBOARD+'/:id'} render={(props)=>{return (
+          <div>
+            <CompanyList companies={this.state.companies} />
+            <hr />
+            <DashboardCompany {...props} />
+          </div>
+        )}} />
         <Route exact={true} path={DASHBOARD}><CompanyList companies={this.state.companies} /></Route>
         <Route exact={false} path={DASHBOARD}><Redirect to={DASHBOARD} /></Route>
       </Switch>
