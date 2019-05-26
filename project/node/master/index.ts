@@ -131,7 +131,7 @@ if(logger == null) {
 	});
 }
 
-/*
+
 let login: {id: number|undefined, password: string|undefined} = {id: undefined, password: undefined};
 try {
 	login = JSON.parse(readFileSync(program.login, 'ascii'));
@@ -164,7 +164,7 @@ else {
 	let router = new DataRouter(server, id, password, connector);
 	//TODO: request extra AP details from server
 }
-*/
+
 
 // This is to stop node from closing
 setInterval(() => {}, 1 << 30);
