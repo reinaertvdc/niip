@@ -69,10 +69,10 @@ echo 'Installing optional packages (apt)'
 
 # Install nodejs/npm
 echo 'Installing nodejs/npm'
-wget -O node.tar.xz "$NODE"
+wget -O node.tar.xz "$NODE" > /dev/null 2>&1
 tar xf ./node.tar.xz > /dev/null 2>&1
 rm ./node.tar.xz > /dev/null 2>&1
-mv ./node-* ./node
+mv ./node-* ./node > /dev/null 2>&1
 cp -r ./node/bin /usr/local/ > /dev/null 2>&1
 cp -r ./node/lib /usr/local/ > /dev/null 2>&1
 cp -r ./node/include /usr/local/ > /dev/null 2>&1
