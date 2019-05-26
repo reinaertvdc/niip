@@ -118,7 +118,7 @@ echo 'Configuring pm2'
 echo '    pm2 startup'
 pm2 startup > /dev/null 2>&1
 echo '    pm2 start'
-su -c "cd /home/pi/niip/ ; pm2 start node -- /home/pi/niip/index.js -i /home/pi/niip/logs/waanrode-to-molenstede.txt"
+su -c "cd /home/pi/niip/ ; pm2 start node -- /home/pi/niip/index.js -i /home/pi/niip/logs/waanrode-to-molenstede.txt" > /dev/null 2>&1
 echo '    pm2 save'
 pm2 save > /dev/null 2>&1
 
