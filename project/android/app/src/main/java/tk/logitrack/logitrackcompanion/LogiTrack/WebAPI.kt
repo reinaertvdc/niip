@@ -24,7 +24,7 @@ interface WebAPI {
 					RxJava2CallAdapterFactory.create())
 				.addConverterFactory(
 					MoshiConverterFactory.create())
-				.baseUrl(/*"http://logitrack.tk/api/" */ "http://192.168.1.196:5454/api/")
+				.baseUrl("http://logitrack.tk/api/" /*"http://192.168.1.196:5454/api/"*/)
 				.build()
 
 			return retrofit.create(WebAPI::class.java)
