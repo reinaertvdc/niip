@@ -3,15 +3,25 @@ const uuid = require("uuid/v4");
 const bonjour = require("bonjour")();
 
 import { DataProvider, DataDescription } from "../data-provider/data-provider";
+import { EventEmitter } from "events";
 
-class APIServer {
+type LatePromise = {
+    resolve: Function,
+    reject: Function
+}
+
+class APIServer extends EventEmitter {
     private eventMap: Map<string, Function> = new Map();
     private streamMap: Map<string, any> = new Map();
+    private mqttForward: Set<any> = new Set();
+    private dataConnections: Map<any, Set<string>> = new Map();
+    private dataWaitList: Map<string, Array<LatePromise>> = new Map();
 
     private wsServer;
     private dataProvider: DataProvider;
 
     public constructor(port: number) {
+        super()
         this.dataProvider = DataProvider.getInstance();
         this.initEventMap();
         this.createServer(port);
@@ -26,11 +36,23 @@ class APIServer {
         this.onStopDataStream = this.onStopDataStream.bind(this);
         this.onListData = this.onListData.bind(this);
         this.onGetData = this.onGetData.bind(this);
+        this.onAdvertiseData = this.onAdvertiseData.bind(this);
+        this.onAdvertiseMQTTForward = this.onAdvertiseMQTTForward.bind(this);
+        this.onMQTTForward = this.onMQTTForward.bind(this);
+        this.onStartMQTT = this.onStartMQTT.bind(this);
+        this.onStopMQTT = this.onStopMQTT.bind(this);
+        this.onProvideData = this.onProvideData.bind(this);
 
         this.eventMap.set("start-data-stream", this.onStartDataStream);
         this.eventMap.set("stop-data-stream", this.onStopDataStream);
         this.eventMap.set("list-data", this.onListData);
         this.eventMap.set("get-data", this.onGetData);
+        this.eventMap.set("start-mqtt", this.onStartMQTT);
+        this.eventMap.set("stop-mqtt", this.onStopMQTT);
+        this.eventMap.set("mqtt-forward", this.onMQTTForward);
+        this.eventMap.set("advertise-mqtt-forward", this.onAdvertiseMQTTForward);
+        this.eventMap.set("advertise-data", this.onAdvertiseData);
+        this.eventMap.set("provide-data", this.onProvideData);
     }
 
     /**
@@ -73,8 +95,30 @@ class APIServer {
 
         // Add error callback
         connection.on("error", (error) => {
+            this.removeMQTTConnection(connection)
+            this.removeDataConnection(connection)
             console.log("[DataProvider] Error: " + error);
         });
+    }
+
+    private removeMQTTConnection(connection) {
+        if(this.mqttForward.has(connection)) {
+            this.mqttForward.delete(connection)
+            this.emit("mqtt-forwarder-removed")
+        }
+    }
+
+    private removeDataConnection(connection) {
+        if(this.dataConnections.has(connection)) {
+            let keys: Set<string> = this.dataConnections.get(connection)
+            
+            keys.forEach(key => {
+                DataProvider.getInstance().remove(key)
+            });
+            
+    
+            this.dataConnections.delete(connection)
+        }
     }
 
     /**
@@ -223,6 +267,85 @@ class APIServer {
                 "sources": sources
             }
         }));
+    }
+
+    private onAdvertiseMQTTForward(connection, payload) {
+        this.mqttForward.add(connection)
+        this.emit("mqtt-forwarder-added", connection)
+    }
+
+    private onStartMQTT(connection, payload) {
+        this.emit("mqtt-forwarder-ready", connection)
+    }
+
+    private onStopMQTT(connection, payload) {
+        this.emit("mqtt-forwarder-stopped", connection)
+    }
+
+    private onMQTTForward(connection, payload) {
+        if(payload.hasOwnProperty("data")) {
+            this.emit("mqtt-forward", payload.data)
+        }
+    }
+
+    private onAdvertiseData(connection, payload, event) {
+        this.addDataConnection(connection, payload.key, payload.event, payload.description)
+    }
+
+    private onProvideData(connection, payload) {
+        if(payload.hasOwnProperty("key")) {
+            let key: string = payload.key
+            delete payload.key
+
+            if(this.dataWaitList.has(key)) {
+                this.dataWaitList.get(key).forEach(latePromise => {
+                    latePromise.resolve(payload)
+                });
+
+                this.dataWaitList.set(key, [])
+            }
+        }
+    }
+
+    private addDataConnection(connection, key, event, description) {
+        if(!this.dataConnections.has(connection)) {
+            this.dataConnections.set(connection, new Set())
+        }
+
+        let keySet = this.dataConnections.get(connection)
+        if(!keySet.has(key)) {
+            keySet.add(key)
+            DataProvider.getInstance().register({
+				"key": key,
+				"source": this.getDataFromConnection,
+				"thisObject": this,
+				"arguments": [connection, key, event],
+				"description": description
+			})
+        }
+    }
+
+    public getDataFromConnection(connection, key, event) {
+        let promise = new Promise<any>((resolve, reject) => {
+            let latePromise = {
+                resolve,
+                reject
+            }
+
+            if(!this.dataWaitList.has(key)) {
+                this.dataWaitList.set(key, [])
+            }
+            this.dataWaitList.get(key).push(latePromise)
+        })
+
+        connection.send({
+            type: event,
+            data: {
+
+            }
+        })
+
+        return promise
     }
 
     /**

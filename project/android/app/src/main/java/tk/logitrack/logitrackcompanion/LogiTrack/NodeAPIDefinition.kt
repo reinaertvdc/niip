@@ -23,12 +23,68 @@ interface NodeAPIDefinition {
 
 	@Send
 	fun sendGetData(getData: GetData)
+
+	@Send
+	fun sendAdvertiseData(advertiseData: AdvertiseData)
+
+	@Send
+	fun sendProvideData(provideData: ProvideData)
+
+	@Send
+	fun sendMQTTForward(mqttForward: MQTTForward)
+
+	@Send
+	fun sendAdvertiseMQTTForwarder(mqttFowardAdvertisement: MQTTForwardAdvertisement)
+
+	@Send
+	fun sendStartMQTT(startMQTT: StartMQTT)
+
+	@Send
+	fun sendStopMQTT(stopMQTT: StopMQTT)
 }
 
 data class StandardReply (
 	val type: String,
 	val data: MutableMap<String, kotlin.Any> = HashMap()
 )
+
+class StartMQTT {
+	val type: String = "start-mqtt"
+	val data: MutableMap<String, kotlin.Any> = HashMap()
+}
+
+class StopMQTT {
+	val type: String = "stop-mqtt"
+	val data: MutableMap<String, kotlin.Any> = HashMap()
+}
+
+class MQTTForwardAdvertisement {
+	val type: String = "advertise-mqtt-forward"
+	val data: MutableMap<String, kotlin.Any> = HashMap()
+}
+
+class AdvertiseData(eventName: String, dataKey: String) {
+	val type: String = "advertise-data"
+	val data: MutableMap<String, kotlin.Any> = HashMap()
+
+	init {
+		data["event"] = eventName
+		data["key"] = dataKey
+	}
+}
+
+class ProvideData(val data: MutableMap<String, kotlin.Any>) {
+	val type: String = "provide-data"
+}
+
+class MQTTForward(val mqttData: String) {
+	val type: String = "mqtt-forward"
+	val data: MutableMap<String, kotlin.Any> = HashMap()
+
+	init {
+		data["data"] = mqttData
+	}
+}
 
 class StartDataStream(sources: List<String>, interval: Int) {
 	val type: String = "start-data-stream"

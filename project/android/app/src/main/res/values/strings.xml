@@ -28,4 +28,7 @@
     <string name="connection_wifi_ssid_key">connection_wifi_ssid</string>
 	<string name="connection_wifi_auto_connect_key">connection_wifi_auto_connect</string>
 	<string name="connection_wifi_psk_key">connection_wifi_psk</string>
+	<string name="connection_wifi_id_key">connection_wifi_id</string>
+    <string name="connection_wifi_key_key">connection_wifi_key</string>
+    <string name="user_username_key">user_username</string>
 </resources>
