@@ -100,8 +100,8 @@ export class DataRouter {
     private _clientid: string;
     private _password: string;
     private _basetopic: string;
-    private _subtopicup: string;
-    private _subtopicdown: string;
+    private _topicup: string;
+    private _topicdown: string;
 
     public constructor(clientid: number, password: string)
     public constructor(clientid: number, password: string, wifiIfacePrimary: Array<string>)
@@ -115,12 +115,12 @@ export class DataRouter {
             database: PG.database,
         });
         this._buffer = new DataBuffer(this._pg);
-        this._username = NumericBase64.fromNumber(clientid);
-        this._clientid = NumericBase64.fromNumber(clientid);
+        this._username = NumericBase64.encode(clientid);
+        this._clientid = NumericBase64.encode(clientid);
         this._password = password;
-        this._basetopic = NumericBase64.fromNumber(clientid);
-        this._subtopicup = 'u';
-        this._subtopicdown = 'd';
+        this._basetopic = NumericBase64.encode(clientid);
+        this._topicup = 'u';
+        this._topicdown = 'd';
         if (arg === null) {
             this._cm = new CM.ConnectionManager(null, null);
         }
@@ -131,14 +131,14 @@ export class DataRouter {
             this._cm = new CM.ConnectionManager(arg);
         }
         this._cm.on('connect', this.cmConnectCallback.bind(this));
-        this._mqtt = new MQTT('mqtts://mqtt.logitrack.tk', {
+        this._mqtt = new MQTT('mqtts://mqtt.logitrack.tk:443', {
             username: this._username,
             clientId: this._clientid,
             password: this._password,
             clean: false,
         });
         //TODO: change callback
-        this._mqtt.subscribe(this._basetopic + '/' + this._subtopicdown, 2, (topic: string, payload:Buffer)=>{
+        this._mqtt.subscribe(this._topicdown + '/' + this._basetopic, 2, (topic: string, payload:Buffer)=>{
             console.log(payload);
         }).then((val:boolean)=>{
             this.pollLoop();
@@ -327,7 +327,7 @@ export class DataRouter {
             for (let i: number = 0; i < data.length; i++) {
                 dataArray.push(data[i].jsonBuffer);
             }
-            let sendResult: Array<boolean> = await this._mqtt.publishAll(this._basetopic + '/' + this._subtopicup, dataArray, 2);
+            let sendResult: Array<boolean> = await this._mqtt.publishAll(this._topicup + '/' + this._basetopic, dataArray, 2);
             for (let i: number = 0; i < data.length && i < sendResult.length; i++) {
                 if (sendResult[i] === true) {
                     let id: number|null = data[i].id;
