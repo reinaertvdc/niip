@@ -51,10 +51,11 @@ export default class DashboardNode extends React.Component<IDashboardNodeProps, 
         location: {
           lbl:'truck ' + this.props.match.params.id,
           id: parseInt(this.props.match.params.id),
-          lat:50.9312154, lng:5.3935026
+          lat:50.9312154+(Math.random()/10)-0.05, lng:5.3935026+(Math.random()/10)-0.05
         }
       });
     }, 2000);
+    setTimeout(this.getNodeLocation.bind(this), 15000);
   }
 
   public componentDidMount() {

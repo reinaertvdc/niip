@@ -51,9 +51,9 @@ export default class DashboardCompany extends React.Component<IDashboardCompanyP
     setTimeout(() => {
       this.setState({
         locations: [
-          {id:1, lbl:'Truck 1', lat:50.9312154, lng:5.3935026},
-          {id:2, lbl:'Truck 2', lat:50.9263313, lng:5.3912442},
-          {id:3, lbl:'Truck 3', lat:51.0796581, lng:5.6826122}
+          {id:1, lbl:'Truck 1', lat:50.9312154+(Math.random()/5)-0.1, lng:5.3935026+(Math.random()/5)-0.1},
+          {id:2, lbl:'Truck 2', lat:50.9263313+(Math.random()/5)-0.1, lng:5.3912442+(Math.random()/5)-0.1},
+          {id:3, lbl:'Truck 3', lat:51.0796581+(Math.random()/5)-0.1, lng:5.6826122+(Math.random()/5)-0.1}
         ]
       })
     }, 5000);
