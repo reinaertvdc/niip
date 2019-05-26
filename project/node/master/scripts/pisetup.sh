@@ -11,9 +11,10 @@ then
 fi
 
 #TODO: change these variables to AP within range op the RPI
-SSID='cw-2.4'
+SSID='cw-5.0'
 PSK='9edFrBDobS'
 HNAME='rpi-cwout'
+NODE='https://nodejs.org/dist/v12.3.1/node-v12.3.1-linux-armv7l.tar.xz'
 
 # Disable password requirements and set new password to 'ip'
 echo 'Changing password of user "pi" to "ip"' > /dev/null 2>&1
@@ -57,36 +58,37 @@ echo '    dnsutils'
 apt -y install dnsutils > /dev/null 2>&1
 echo '    libffi-dev'
 apt -y install libffi-dev > /dev/null 2>&1
-
-# Additional packages
-echo 'Installing optional packages (apt)'
-# apt -y install ranger > /dev/null 2>&1
 echo '    python3'
 apt -y install python3 > /dev/null 2>&1
 echo '    python3-pip'
 apt -y install python3-pip > /dev/null 2>&1
 
+# Additional packages
+echo 'Installing optional packages (apt)'
+# apt -y install ranger > /dev/null 2>&1
+
 # Install nodejs/npm
 echo 'Installing nodejs/npm'
-wget https://nodejs.org/dist/v11.14.0/node-v11.14.0-linux-armv7l.tar.xz > /dev/null 2>&1
-tar xf ./node-v11.14.0-linux-armv7l.tar.xz > /dev/null 2>&1
-rm ./node-v11.14.0-linux-armv7l.tar.xz > /dev/null 2>&1
-cp -r ./node-v11.14.0-linux-armv7l/bin /usr/local/ > /dev/null 2>&1
-cp -r ./node-v11.14.0-linux-armv7l/lib /usr/local/ > /dev/null 2>&1
-cp -r ./node-v11.14.0-linux-armv7l/include /usr/local/ > /dev/null 2>&1
-cp -r ./node-v11.14.0-linux-armv7l/share /usr/local/ > /dev/null 2>&1
-rm -r ./node-v11.14.0-linux-armv7l/ > /dev/null 2>&1
+wget -O node.tar.xz "$NODE"
+tar xf ./node.tar.xz > /dev/null 2>&1
+rm ./node.tar.xz > /dev/null 2>&1
+mv ./node-* ./node
+cp -r ./node/bin /usr/local/ > /dev/null 2>&1
+cp -r ./node/lib /usr/local/ > /dev/null 2>&1
+cp -r ./node/include /usr/local/ > /dev/null 2>&1
+cp -r ./node/share /usr/local/ > /dev/null 2>&1
+rm -r ./node/ > /dev/null 2>&1
 
 # Install nodejs packages/tools
 echo 'Installing packages (npm)'
 echo '    pm2'
 npm install -g pm2 > /dev/null 2>&1
-echo '    typescript'
-npm install -g typescript > /dev/null 2>&1
-echo '    ts-node'
-npm install -g ts-node > /dev/null 2>&1
-echo '    cd /home/pi/niip/ ; npm install'
-su -c "cd /home/pi/niip/ ; npm install" - pi > /dev/null 2>&1
+#echo '    typescript'
+#npm install -g typescript > /dev/null 2>&1
+#echo '    ts-node'
+#npm install -g ts-node > /dev/null 2>&1
+#echo '    cd /home/pi/niip/ ; npm install'
+#su -c "cd /home/pi/niip/ ; npm install" - pi > /dev/null 2>&1
 
 # Install docker and docker-compose
 echo 'Installing docker & docker-compose'
@@ -116,7 +118,7 @@ echo 'Configuring pm2'
 echo '    pm2 startup'
 pm2 startup > /dev/null 2>&1
 echo '    pm2 start'
-su -c "cd /home/pi/niip/ ; pm2 start ts-node -- /home/pi/niip/index.ts -i /home/pi/niip/logs/waanrode-to-molenstede.txt"
+su -c "cd /home/pi/niip/ ; pm2 start node -- /home/pi/niip/index.js -i /home/pi/niip/logs/waanrode-to-molenstede.txt"
 echo '    pm2 save'
 pm2 save > /dev/null 2>&1
 
