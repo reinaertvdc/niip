@@ -5,6 +5,7 @@ import { sleep } from './sleep-util';
 import { NumericBase64 } from './base64-helper'
 import { DataProvider } from '../data-provider/data-provider';
 import { readFile } from 'fs';
+import { APIServer } from "../api-server/api-server";
 
 
 const PG_HOST = '127.0.0.1';
@@ -24,7 +25,7 @@ const PG: PgDetails = {
 export enum DataUrgency {
     WHENEVER = 0,
     LOWCOST,
-    HIGHCOST,
+    // HIGHCOST,
     ASAP
 }
 
@@ -93,6 +94,7 @@ export class DataRouter {
 
     private _buffer: DataBuffer;
     private _cm: CM.ConnectionManager;
+    private _apiserver: APIServer;
 
     private _mqtt: MQTT;
 
@@ -102,11 +104,13 @@ export class DataRouter {
     private _basetopic: string;
     private _topicup: string;
     private _topicdown: string;
+    private _lastKnownMqttForwarderConnection: WebSocket|undefined = undefined;
+    private _lastKnownMqttForwarderReadyState: boolean = false;
 
-    public constructor(clientid: number, password: string)
-    public constructor(clientid: number, password: string, wifiIfacePrimary: Array<string>)
-    public constructor(clientid: number, password: string, cm: CM.ConnectionManager)
-    public constructor(clientid: number, password: string, arg: CM.ConnectionManager|Array<string>|null = null) {
+    public constructor(apiserver: APIServer, clientid: number, password: string)
+    public constructor(apiserver: APIServer, clientid: number, password: string, wifiIfacePrimary: Array<string>)
+    public constructor(apiserver: APIServer, clientid: number, password: string, cm: CM.ConnectionManager)
+    public constructor(apiserver: APIServer, clientid: number, password: string, arg: CM.ConnectionManager|Array<string>|null = null) {
         this._pg = new Pool({
             host: PG.host,
             port: PG.port,
@@ -114,6 +118,7 @@ export class DataRouter {
             password: PG.password,
             database: PG.database,
         });
+        this._apiserver = apiserver;
         this._buffer = new DataBuffer(this._pg);
         this._username = NumericBase64.encode(clientid);
         this._clientid = NumericBase64.encode(clientid);
@@ -136,6 +141,23 @@ export class DataRouter {
             clientId: this._clientid,
             password: this._password,
             clean: false,
+        });
+        this._apiserver.on('mqtt-forwarder-added', (connection:WebSocket|undefined)=>{
+            if (this._lastKnownMqttForwarderConnection !== undefined) {
+                try {
+                    this._lastKnownMqttForwarderConnection.send(JSON.stringify({
+                        type: 'stop-mqtt',
+                        data: {}
+                    }));
+                } catch (e) { console.error(e); }
+            }
+            this._lastKnownMqttForwarderConnection = connection;
+        });
+        this._apiserver.on('mqtt-forwarder-ready', ()=>{
+            this._lastKnownMqttForwarderReadyState = true;
+        });
+        this._apiserver.on('mqtt-forwarder-stopped', ()=>{
+            this._lastKnownMqttForwarderReadyState = false;
         });
         //TODO: change callback
         this._mqtt.subscribe(this._topicdown + '/' + this._basetopic, 2, (topic: string, payload:Buffer)=>{
@@ -271,20 +293,26 @@ export class DataRouter {
     private async sendLoop(): Promise<void> {
         while (true) {
             await sleep(0);
-            if (this._cm.lastConnectedAP === null || this._cm.lastConnectedNetwork === null) {
-                console.log('Data Router - No connection detected - pausing')
-                await sleep(1000);
-                console.log('Data Router - resuming')
-                continue;
-            }
             let minU: DataUrgency = DataUrgency.WHENEVER;
-            let needsMqttClient: boolean = true;
-            let needsLoraClient: boolean = false;
-            if (this._cm.lastConnectedAP.type === CM.APtype.UNDEFINED) {
-                console.log('Data Router - Current connection type unknown - pausing')
-                await sleep(1000);
-                console.log('Data Router - resuming')
-                continue;
+            let needsMqttForward = false;
+            if (this._cm.lastConnectedAP === null || this._cm.lastConnectedNetwork === null || this._cm.lastConnectedAP.type === CM.APtype.UNDEFINED) {
+                needsMqttForward = true;
+                if (this._lastKnownMqttForwarderConnection === undefined) {
+                    console.log('Data Router - No connection detected - pausing')
+                    await sleep(1000);
+                    console.log('Data Router - resuming')
+                    continue;
+                }
+                if (!this._lastKnownMqttForwarderReadyState) {
+                    this._lastKnownMqttForwarderConnection.send(JSON.stringify({
+                        type: 'start-mqtt',
+                        data: {}
+                    }));
+                    console.log('Data Router - Mqtt forwarder not ready yet - pausing')
+                    await sleep(1000);
+                    console.log('Data Router - resuming')
+                    continue;
+                }
             }
             else if (this._cm.lastConnectedAP.type === CM.APtype.WIFI) {
                 minU = DataUrgency.WHENEVER;
@@ -294,13 +322,8 @@ export class DataRouter {
                     minU = DataUrgency.LOWCOST;
                 }
                 else {
-                    minU = DataUrgency.HIGHCOST;
+                    minU = DataUrgency.ASAP;
                 }
-            }
-            else if (this._cm.lastConnectedAP.type === CM.APtype.LORA) {
-                minU = DataUrgency.ASAP;
-                needsMqttClient = false;
-                needsLoraClient = true;
             }
             let data: Array<Data> = await this._buffer.peek(minU, DataUrgency.ASAP, 10);
             if (data.length === 0) {
@@ -309,18 +332,29 @@ export class DataRouter {
                 console.log('Data Router - resuming')
                 continue;
             }
-            if (needsMqttClient) {
+            if (needsMqttForward && this._lastKnownMqttForwarderConnection !== undefined && this._lastKnownMqttForwarderReadyState) {
+                console.log('Data Router - Sending using mqtt forward over mobile');
+                for (let i: number = 0; i < data.length; i++) {
+                    this._lastKnownMqttForwarderConnection.send(JSON.stringify({
+                        type: 'mqtt-forward',
+                        data: {
+                            data: data[i].jsonBuffer
+                        }
+                    }));
+                    let id: number|null = data[i].id;
+                    let tmpData = new Data(data[i].timestamp, data[i].data, DataUrgency.WHENEVER);
+                    await this._buffer.push(tmpData);
+                    await this._buffer.remove([id]);
+                }
+                continue;
+            }
+            else {
                 if (!await this._mqtt.connect()) {
                     console.log('Data Router - MQTT client no connected - pausing')
                     await sleep(1000);
                     console.log('Data Router - resuming')
                     continue;
                 }
-            }
-            if (needsLoraClient) {
-                console.log('Data Router - LORA client required on connection - Not implemented yet');
-                continue;
-                //TODO: implement lora client
             }
             console.log('Data Router - Sending');;
             let dataArray: Array<Buffer> = [];

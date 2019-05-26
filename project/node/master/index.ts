@@ -158,7 +158,7 @@ else {
 		ifaces = program.interfaces;
 	}
 	let connector = new ConnectionManager(ifaces, 'LogiTrack-'+id, password, '10.10.10.1');
-	let router = new DataRouter(id, password, connector);
+	let router = new DataRouter(server, id, password, connector);
 	//TODO: request extra AP details from server
 }
 
