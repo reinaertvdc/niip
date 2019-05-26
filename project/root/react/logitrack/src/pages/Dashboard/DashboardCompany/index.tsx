@@ -57,6 +57,7 @@ export default class DashboardCompany extends React.Component<IDashboardCompanyP
         ]
       })
     }, 5000);
+    setTimeout(this.getNodeLocations.bind(this), 15000);
   }
 
   private async getCompanyData(): Promise<void> {
