@@ -56,7 +56,6 @@ export default class DashboardNode extends React.Component<IDashboardNodeProps, 
     return (
       <div>
         <NumberGraph data={this.state.tmpData} />
-        {/* <NumberGraph data={{label:'abc',points:[{x:1,y:1},{x:5,y:2},{x:6,y:3},{x:7,y:2}]}}/> */}
       </div>
     );
   }
