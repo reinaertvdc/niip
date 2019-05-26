@@ -68,6 +68,11 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private lateinit var lastLocation: Location
 	private var refreshInfo: Boolean = true
 
+	override fun onCreate(savedInstanceState: Bundle?) {
+		super.onCreate(savedInstanceState)
+		initApi()
+	}
+
 	override fun onCreateView(
 		inflater: LayoutInflater, container: ViewGroup?,
 		savedInstanceState: Bundle?
@@ -119,16 +124,16 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 
 		syncTopBar()
 		checkStep()
+		fetchData()
 	}
 
 	override fun onActivityCreated(savedInstanceState: Bundle?) {
 		super.onActivityCreated(savedInstanceState)
-
-		initApi()
 	}
 
 	private fun initApi() {
-		WebAPI.create()
+		webAPI = WebAPI.create()
+
 		val x = NodeAPI.observeMQTTStart().subscribe {
 			if(nodeData != null && nodeData!!.id.isNotEmpty()) {
 				MQTTClient.connect(parentContext, nodeData!!.id, nodeData!!.key)
@@ -198,7 +203,6 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 
 	override fun onFragmentActive() {
 		initGPS()
-		fetchData()
 	}
 
 	override fun onFragmentNonActive() {
@@ -207,9 +211,11 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	override fun onLogin(token: String, id: String) {
 		loginData = LoginData(token, id)
 
+		Log.d(javaClass.simpleName, "On login ${token} $id")
 		if(::parentContext.isInitialized)
 			saveLoginData(parentContext.defaultSharedPreferences)
 
+		syncLoginFragment()
 		fetchData()
 	}
 
@@ -243,7 +249,9 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	}
 
 	private fun fetchData() {
+		Log.d(javaClass.simpleName, "Trying to log data ${::webAPI.isInitialized}")
 		if(::webAPI.isInitialized && loginData != null && loginData!!.id.isNotEmpty()) {
+			Log.d(javaClass.simpleName, "Fetching Data")
 			val x = webAPI.getUser(loginData!!.id)
 				.subscribeOn(Schedulers.io())
 				.observeOn(AndroidSchedulers.mainThread())

@@ -23,7 +23,7 @@ interface WebAPI {
 					RxJava2CallAdapterFactory.create())
 				.addConverterFactory(
 					MoshiConverterFactory.create())
-				.baseUrl("http://192.168.1.16:5454")
+				.baseUrl("http://192.168.1.196:5454")
 				.build()
 
 			return retrofit.create(WebAPI::class.java)

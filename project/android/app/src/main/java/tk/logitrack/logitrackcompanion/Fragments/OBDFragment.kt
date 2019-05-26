@@ -57,7 +57,7 @@ class OBDFragment(): LongLifeFragment() {
 
 	private fun start() {
 		if(this.connectionOpen) {
-			val sources: List<String> = mutableListOf("pid-12", "pid-13")
+			val sources: List<String> = mutableListOf("pid-12-readable", "pid-13-readable")
 			NodeAPI.api.sendStartDataStream(StartDataStream(sources, 1000))
 		}
 	}
@@ -115,15 +115,15 @@ class OBDFragment(): LongLifeFragment() {
 	}
 
 	private fun onDataTick(data: MutableMap<String, Any>) {
-		if(data.containsKey("pid-12")) {
-			var rpm: String = data.get("pid-12") as String
+		if(data.containsKey("pid-12-readable")) {
+			var rpm: String = data.get("pid-12-readable") as String
 			rpm = rpm.removeRange(rpm.length - 3, rpm.length)
 			obd_rpm_progress.setCurrentValues(rpm.toFloat())
 			obd_rpm_text.text = rpm
 		}
 
-		if(data.containsKey("pid-13")) {
-			var speed: String = data.get("pid-13") as String
+		if(data.containsKey("pid-13-readable")) {
+			var speed: String = data.get("pid-13-readable") as String
 			speed = speed.removeRange(speed.length - 4, speed.length)
 			obd_speed_progress.setCurrentValues(speed.toFloat())
 			obd_speed_text.text = speed

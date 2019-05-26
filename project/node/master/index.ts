@@ -102,6 +102,14 @@ if(logger == null) {
 				"description": obd2.getPIDDescription(supportedPIDs[i])
 			});
 
+			provider.register({
+				"key": "pid-" + supportedPIDs[i] + "-readable",
+				"source": obd2.getBufferedData,
+				"thisObject": obd2,
+				"arguments": [supportedPIDs[i], true, true],
+				"description": obd2.getPIDDescription(supportedPIDs[i])
+			})
+
 			console.log("[MAIN] Registered PID-%j with DataProvider (%j)", supportedPIDs[i], obd2.getPIDDescription(supportedPIDs[i]));
 		}
 	});
