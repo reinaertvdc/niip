@@ -131,7 +131,7 @@ export class DataRouter {
             this._cm = new CM.ConnectionManager(arg);
         }
         this._cm.on('connect', this.cmConnectCallback.bind(this));
-        this._mqtt = new MQTT('mqtts://logitrack.tk', {
+        this._mqtt = new MQTT('mqtts://mqtt.logitrack.tk', {
             username: this._username,
             clientId: this._clientid,
             password: this._password,
