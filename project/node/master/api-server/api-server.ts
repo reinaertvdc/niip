@@ -1,4 +1,5 @@
-const ws = require("ws");
+import * as ws from 'ws';
+// const ws = require("ws");
 const uuid = require("uuid/v4");
 const bonjour = require("bonjour")();
 
@@ -18,7 +19,7 @@ class APIServer extends EventEmitter {
     private dataConnections: Map<any, Set<string>> = new Map();
     private dataWaitList: Map<string, Array<LatePromise>> = new Map();
 
-    private wsServer;
+    private wsServer: ws.Server|undefined;
     private dataProvider: DataProvider;
 
     public constructor(port: number) {

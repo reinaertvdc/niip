@@ -1,10 +1,11 @@
 import * as CM from './connection-manager';
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { MQTT } from './mqtt-helper';
 import { sleep } from './sleep-util';
 import { NumericBase64 } from './base64-helper'
 import { DataProvider } from '../data-provider/data-provider';
 import { readFile } from 'fs';
+import { APIServer } from "../api-server/api-server";
 
 
 const PG_HOST = '127.0.0.1';
@@ -24,7 +25,7 @@ const PG: PgDetails = {
 export enum DataUrgency {
     WHENEVER = 0,
     LOWCOST,
-    HIGHCOST,
+    // HIGHCOST,
     ASAP
 }
 
@@ -93,6 +94,7 @@ export class DataRouter {
 
     private _buffer: DataBuffer;
     private _cm: CM.ConnectionManager;
+    private _apiserver: APIServer;
 
     private _mqtt: MQTT;
 
@@ -102,11 +104,13 @@ export class DataRouter {
     private _basetopic: string;
     private _topicup: string;
     private _topicdown: string;
+    private _lastKnownMqttForwarderConnection: WebSocket|undefined = undefined;
+    private _lastKnownMqttForwarderReadyState: boolean = false;
 
-    public constructor(clientid: number, password: string)
-    public constructor(clientid: number, password: string, wifiIfacePrimary: Array<string>)
-    public constructor(clientid: number, password: string, cm: CM.ConnectionManager)
-    public constructor(clientid: number, password: string, arg: CM.ConnectionManager|Array<string>|null = null) {
+    public constructor(apiserver: APIServer, clientid: number, password: string)
+    public constructor(apiserver: APIServer, clientid: number, password: string, wifiIfacePrimary: Array<string>)
+    public constructor(apiserver: APIServer, clientid: number, password: string, cm: CM.ConnectionManager)
+    public constructor(apiserver: APIServer, clientid: number, password: string, arg: CM.ConnectionManager|Array<string>|null = null) {
         this._pg = new Pool({
             host: PG.host,
             port: PG.port,
@@ -114,6 +118,7 @@ export class DataRouter {
             password: PG.password,
             database: PG.database,
         });
+        this._apiserver = apiserver;
         this._buffer = new DataBuffer(this._pg);
         this._username = NumericBase64.encode(clientid);
         this._clientid = NumericBase64.encode(clientid);
@@ -137,6 +142,23 @@ export class DataRouter {
             password: this._password,
             clean: false,
         });
+        this._apiserver.on('mqtt-forwarder-added', (connection:WebSocket|undefined)=>{
+            if (this._lastKnownMqttForwarderConnection !== undefined) {
+                try {
+                    this._lastKnownMqttForwarderConnection.send(JSON.stringify({
+                        type: 'stop-mqtt',
+                        data: {}
+                    }));
+                } catch (e) { console.error(e); }
+            }
+            this._lastKnownMqttForwarderConnection = connection;
+        });
+        this._apiserver.on('mqtt-forwarder-ready', ()=>{
+            this._lastKnownMqttForwarderReadyState = true;
+        });
+        this._apiserver.on('mqtt-forwarder-stopped', ()=>{
+            this._lastKnownMqttForwarderReadyState = false;
+        });
         //TODO: change callback
         this._mqtt.subscribe(this._topicdown + '/' + this._basetopic, 2, (topic: string, payload:Buffer)=>{
             console.log(payload);
@@ -148,13 +170,18 @@ export class DataRouter {
     }
 
     private async initializeAPs(): Promise<void> {
-        return new Promise<void>(((resolve)=>{
-            this.initializeAPsFromFile('ap.json').then(((val: boolean)=>{
+        await this.initializeAPsFromFile('ap.json');
+        let ok: boolean = false;
+        while (!ok) {
+            ok = await new Promise<boolean>(((resolve)=>{
                 this.initializeAPsFromDatabase().then(((val: boolean)=>{
-                    resolve();
+                    resolve(val);
                 }).bind(this));
             }).bind(this));
-        }).bind(this));
+            if (!ok) {
+                await sleep(1000);
+            }
+        }
     }
 
     private async initializeAPsFromFile(filename: string): Promise<boolean> {
@@ -200,7 +227,17 @@ export class DataRouter {
     }
 
     private async initializeAPsFromDatabase(): Promise<boolean> {
-        let client = await this._pg.connect();
+        let client: PoolClient|null = null;
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Could not connect to database - Could not retrieve AP\'s');
+                return false;
+            }
+        } catch (e) {
+            console.log('Data Router - Could not connect to database - Could not retrieve AP\'s');
+            return false;
+        }
         try {
             await client.query('CREATE TABLE IF NOT EXISTS ap ( ssid character varying(32) PRIMARY KEY, psk character(10) NOT NULL, type smallint NOT NULL, cost numeric NOT NULL, speed numeric NOT NULL )');
         } catch (e) {
@@ -208,7 +245,16 @@ export class DataRouter {
             return false;
         }
         client.release();
-        client = await this._pg.connect();
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Could not connect to database - Could not retrieve AP\'s');
+                return false;
+            }
+        } catch (e) {
+            console.log('Data Router - Could not connect to database - Could not retrieve AP\'s');
+            return false;
+        }
         let result = undefined;
         try {
             result = await client.query('select ssid, psk, type, cost, speed from ap');
@@ -271,20 +317,26 @@ export class DataRouter {
     private async sendLoop(): Promise<void> {
         while (true) {
             await sleep(0);
-            if (this._cm.lastConnectedAP === null || this._cm.lastConnectedNetwork === null) {
-                console.log('Data Router - No connection detected - pausing')
-                await sleep(1000);
-                console.log('Data Router - resuming')
-                continue;
-            }
             let minU: DataUrgency = DataUrgency.WHENEVER;
-            let needsMqttClient: boolean = true;
-            let needsLoraClient: boolean = false;
-            if (this._cm.lastConnectedAP.type === CM.APtype.UNDEFINED) {
-                console.log('Data Router - Current connection type unknown - pausing')
-                await sleep(1000);
-                console.log('Data Router - resuming')
-                continue;
+            let needsMqttForward = false;
+            if (this._cm.lastConnectedAP === null || this._cm.lastConnectedNetwork === null || this._cm.lastConnectedAP.type === CM.APtype.UNDEFINED) {
+                needsMqttForward = true;
+                if (this._lastKnownMqttForwarderConnection === undefined) {
+                    console.log('Data Router - No connection detected - pausing')
+                    await sleep(1000);
+                    console.log('Data Router - resuming')
+                    continue;
+                }
+                if (!this._lastKnownMqttForwarderReadyState) {
+                    this._lastKnownMqttForwarderConnection.send(JSON.stringify({
+                        type: 'start-mqtt',
+                        data: {}
+                    }));
+                    console.log('Data Router - Mqtt forwarder not ready yet - pausing')
+                    await sleep(1000);
+                    console.log('Data Router - resuming')
+                    continue;
+                }
             }
             else if (this._cm.lastConnectedAP.type === CM.APtype.WIFI) {
                 minU = DataUrgency.WHENEVER;
@@ -294,13 +346,8 @@ export class DataRouter {
                     minU = DataUrgency.LOWCOST;
                 }
                 else {
-                    minU = DataUrgency.HIGHCOST;
+                    minU = DataUrgency.ASAP;
                 }
-            }
-            else if (this._cm.lastConnectedAP.type === CM.APtype.LORA) {
-                minU = DataUrgency.ASAP;
-                needsMqttClient = false;
-                needsLoraClient = true;
             }
             let data: Array<Data> = await this._buffer.peek(minU, DataUrgency.ASAP, 10);
             if (data.length === 0) {
@@ -309,18 +356,29 @@ export class DataRouter {
                 console.log('Data Router - resuming')
                 continue;
             }
-            if (needsMqttClient) {
+            if (needsMqttForward && this._lastKnownMqttForwarderConnection !== undefined && this._lastKnownMqttForwarderReadyState) {
+                console.log('Data Router - Sending using mqtt forward over mobile');
+                for (let i: number = 0; i < data.length; i++) {
+                    this._lastKnownMqttForwarderConnection.send(JSON.stringify({
+                        type: 'mqtt-forward',
+                        data: {
+                            data: data[i].jsonBuffer
+                        }
+                    }));
+                    let id: number|null = data[i].id;
+                    let tmpData = new Data(data[i].timestamp, data[i].data, DataUrgency.WHENEVER);
+                    await this._buffer.push(tmpData);
+                    await this._buffer.remove([id]);
+                }
+                continue;
+            }
+            else {
                 if (!await this._mqtt.connect()) {
                     console.log('Data Router - MQTT client no connected - pausing')
                     await sleep(1000);
                     console.log('Data Router - resuming')
                     continue;
                 }
-            }
-            if (needsLoraClient) {
-                console.log('Data Router - LORA client required on connection - Not implemented yet');
-                continue;
-                //TODO: implement lora client
             }
             console.log('Data Router - Sending');;
             let dataArray: Array<Buffer> = [];
@@ -389,7 +447,17 @@ class DataBuffer {
 
     public async tableCheck(): Promise<void> {
         if (this._tableChecked) { return; }
-        const client = await this._pg.connect();
+        let client: PoolClient|null = null;
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Data Buffer - Could not connect to database');
+                return;
+            }
+        } catch (e) {
+            console.log('Data Router - Data Buffer - Could not connect to database');
+            return;
+        }
         try {
             await client.query('CREATE TABLE IF NOT EXISTS buffer ( id serial PRIMARY KEY, timestamp timestamp NOT NULL, data json NOT NULL, urgency smallint NOT NULL )');
         } catch (e) { console.error(e); }
@@ -399,7 +467,17 @@ class DataBuffer {
 
     public async push(data: Data): Promise<boolean> {
         await this.tableCheck();
-        const client = await this._pg.connect();
+        let client: PoolClient|null = null;
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Data Buffer - Could not connect to database');
+                return false;
+            }
+        } catch (e) {
+            console.log('Data Router - Data Buffer - Could not connect to database');
+            return false;
+        }
         let insertedId: number = -1;
         try {
             let result = await client.query('INSERT INTO buffer (timestamp,data,urgency) VALUES (to_timestamp($1), $2, $3) RETURNING id', [data.timestamp, JSON.stringify(data.data), data.urgency]);
@@ -419,7 +497,17 @@ class DataBuffer {
 
     public async peek(minUrgency: DataUrgency = DataUrgency.WHENEVER, maxUrgency: DataUrgency = DataUrgency.ASAP, count: number = 100): Promise<Array<Data>> {
         await this.tableCheck();
-        const client = await this._pg.connect();
+        let client: PoolClient|null = null;
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Data Buffer - Could not connect to database');
+                return [];
+            }
+        } catch (e) {
+            console.log('Data Router - Data Buffer - Could not connect to database');
+            return [];
+        }
         let ret: Array<Data> = [];
         let curU: DataUrgency = maxUrgency;
         while (curU >= minUrgency && ret.length < count) {
@@ -446,7 +534,17 @@ class DataBuffer {
             let id: number|null = ids[i];
             if (id === null) { continue; }
             let qs: string = 'DELETE FROM buffer WHERE id=' + id;
-            const client = await this._pg.connect();
+            let client: PoolClient|null = null;
+            try {
+                client = await this._pg.connect();
+                if (client === null) {
+                    console.log('Data Router - Data Buffer - Could not connect to database');
+                    return;
+                }
+            } catch (e) {
+                console.log('Data Router - Data Buffer - Could not connect to database');
+                return;
+            }
             try {
                 await client.query(qs);
             } catch (e) {
