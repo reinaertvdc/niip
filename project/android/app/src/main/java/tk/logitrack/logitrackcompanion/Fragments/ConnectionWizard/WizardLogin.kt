@@ -13,7 +13,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.ProgressBar
 import android.widget.TextView
-import tk.logitrack.logitrackcompanion.LoginActivity
+import com.firebase.ui.auth.AuthUI
 
 import tk.logitrack.logitrackcompanion.R
 
@@ -61,8 +61,14 @@ class WizardLogin : WizardFragment() {
 
 		loginButton.setOnClickListener {
 			buttonView: View ->
-				val intent = Intent(parentContext, LoginActivity::class.java)
-				startActivityForResult(intent, 0)
+				val providers = arrayListOf(
+					AuthUI.IdpConfig.EmailBuilder().build()
+				)
+				startActivityForResult(AuthUI
+					.getInstance()
+					.createSignInIntentBuilder()
+					.setAvailableProviders(providers)
+					.build(), 0)
 		}
 
 		logoutButton.setOnClickListener {
@@ -90,10 +96,8 @@ class WizardLogin : WizardFragment() {
 		Log.d(javaClass.canonicalName, "Activity Result")
 		when(requestCode) {
 			0 ->
-				if(resultCode == Activity.RESULT_OK && data != null) {
-					val token: String = data.getStringExtra("token")
-					val id: String = data.getStringExtra("id")
-					onLogin(token, id)
+				if(resultCode == Activity.RESULT_OK) {
+					onLogin()
 				}
 				else {
 					onLoginFail()
@@ -113,9 +117,9 @@ class WizardLogin : WizardFragment() {
 		this.listener = listener
 	}
 
-	fun onLogin(token: String, id: String) {
+	fun onLogin() {
 		if(::listener.isInitialized)
-			listener.onLogin(token, id)
+			listener.onLogin()
 	}
 
 	fun onLoginFail() {

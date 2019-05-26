@@ -30,6 +30,8 @@ class OBDFragment(): LongLifeFragment() {
 				}
 
 			}
+
+		Log.d(javaClass.simpleName, "Init")
 	}
 
 	override fun onCreateView(

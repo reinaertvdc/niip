@@ -23,12 +23,15 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager.widget.ViewPager
 import com.afollestad.viewpagerdots.DotsIndicator
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.squareup.picasso.Picasso
 import com.tinder.scarlet.WebSocket
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
+import kotlinx.android.synthetic.main.fragment_connection.*
 import org.jetbrains.anko.defaultSharedPreferences
-import tk.logitrack.logitrackcompanion.Data.LoginData
 import tk.logitrack.logitrackcompanion.Data.NodeData
 import tk.logitrack.logitrackcompanion.Data.UserData
 import tk.logitrack.logitrackcompanion.Fragments.LongLifeFragment
@@ -47,7 +50,6 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private lateinit var webAPI: WebAPI
 	private var listener: WizardFragmentListener? = null
 
-	private var loginData: LoginData? = null
 	private var userData: UserData? = null
 	private var nodeData: NodeData? = null
 	private var autoConnect: Boolean = false
@@ -66,23 +68,42 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private var lastSSID: String = ""
 
 	private lateinit var lastLocation: Location
-	private var refreshInfo: Boolean = true
+
+	private lateinit var auth: FirebaseAuth
+	private lateinit var user: FirebaseUser
+	private lateinit var token: String
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+		Log.d(javaClass.simpleName, "OnCreate")
+
+		auth = FirebaseAuth.getInstance()
+	}
+
+	override fun onStart() {
+		super.onStart()
+		Log.d(javaClass.simpleName, "OnStart")
+
+		initSavedData()
 		initApi()
+		initGPS()
+
+		syncTopBar()
+		fetchData()
 	}
 
 	override fun onCreateView(
 		inflater: LayoutInflater, container: ViewGroup?,
 		savedInstanceState: Bundle?
 	): View? {
+		Log.d(javaClass.simpleName, "OnCreateView")
 		// Inflate the layout for this fragment
 		return inflater.inflate(layout.fragment_connection, container, false)
 	}
 
 	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 		super.onViewCreated(view, savedInstanceState)
+		Log.d(javaClass.simpleName, "OnViewCreated")
 
 		topWrapper = view.findViewById(R.id.connection_top_wrapper)
 		topFill = view.findViewById(R.id.top_fill)
@@ -90,12 +111,11 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		userImage = view.findViewById(R.id.user_image)
 
 		viewPager = view.findViewById(R.id.connection_wizard)
-		if(!::adapter.isInitialized) {
-			adapter = ConnectionWizardAdapter(
-				parentContext.supportFragmentManager,
-				this
-			)
-		}
+		adapter = ConnectionWizardAdapter(
+			parentContext.supportFragmentManager,
+			this
+		)
+
 		lastFragment = adapter.getLoginFragment()
 
 		viewPager.adapter = adapter
@@ -118,17 +138,11 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 
 				if(position == 1) {
 					adapter.getWifiFragment().setCurrentWiFi(getCurrentSSID())
+
+					checkWiFi()
 				}
 			}
 		})
-
-		syncTopBar()
-		checkStep()
-		fetchData()
-	}
-
-	override fun onActivityCreated(savedInstanceState: Bundle?) {
-		super.onActivityCreated(savedInstanceState)
 	}
 
 	private fun initApi() {
@@ -162,6 +176,23 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		MQTTClient.observeMessage().subscribe {
 			NodeAPI.api.sendMQTTForward(MQTTForward(it.message!!.payload.toString()))
 		}
+
+		scanner = ServiceScanner(getString(R.string.service_name), getString(R.string.service_type), parentContext)
+		scanner
+			.observe()
+			.subscribeOn(AndroidSchedulers.mainThread())
+			.subscribe {
+				onServiceFound(it.ip, it.port)
+				scanner.stop()
+			}
+
+		wifiObserver = WiFiListener.observe()
+		wifiObserver
+			.subscribeOn(Schedulers.io())
+			.observeOn(AndroidSchedulers.mainThread())
+			.subscribe {
+				onWifiChange(it)
+			}
 	}
 
 	private fun initGPS() {
@@ -175,7 +206,10 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 				// Called when a new location is found by the network location provider.
 				if(!::lastLocation.isInitialized) {
 					lastLocation = location
-					NodeAPI.api.sendAdvertiseData(AdvertiseData("get-gps", "gps-phone"))
+
+					if(NodeAPI.isInitialized()) {
+						NodeAPI.api.sendAdvertiseData(AdvertiseData("get-gps", "gps-phone"))
+					}
 				}
 				else {
 					lastLocation = location
@@ -202,20 +236,32 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	}
 
 	override fun onFragmentActive() {
-		initGPS()
+		Log.d(javaClass.simpleName, "OnFragmentActive")
 	}
 
 	override fun onFragmentNonActive() {
 	}
 
-	override fun onLogin(token: String, id: String) {
-		loginData = LoginData(token, id)
+	override fun onLogin() {
+		if(auth.currentUser != null) {
+			user = auth.currentUser!!
 
-		Log.d(javaClass.simpleName, "On login ${token} $id")
-		if(::parentContext.isInitialized)
-			saveLoginData(parentContext.defaultSharedPreferences)
+			fetchToken()
+		}
+	}
 
-		syncLoginFragment()
+	private fun fetchToken() {
+		user.getIdToken(true).addOnCompleteListener {
+			if(it.isSuccessful) {
+				Log.d(javaClass.simpleName, it.result!!.token)
+
+				onToken(it.result!!.token!!)
+			}
+		}
+	}
+
+	private fun onToken(token: String) {
+		this.token = token
 		fetchData()
 	}
 
@@ -232,7 +278,14 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		if(::parentContext.isInitialized)
 			saveUserData(parentContext.defaultSharedPreferences)
 
-		checkStep()
+		val y = webAPI.getNode(token, userData!!.node)
+			.subscribeOn(Schedulers.io())
+			.observeOn(AndroidSchedulers.mainThread())
+			.subscribe({ result: NodeData ->
+				onNodeData(result)
+			}, { error ->
+				Log.e(this.javaClass.canonicalName, error.toString())
+			})
 	}
 
 	private fun onNodeData(data: NodeData) {
@@ -245,14 +298,18 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		if(::parentContext.isInitialized)
 			saveWiFiData(parentContext.defaultSharedPreferences)
 
-		checkStep()
+		viewPager.currentItem = 1
+
+		if(autoConnect) {
+			connectToWiFi()
+		}
 	}
 
 	private fun fetchData() {
-		Log.d(javaClass.simpleName, "Trying to log data ${::webAPI.isInitialized}")
-		if(::webAPI.isInitialized && loginData != null && loginData!!.id.isNotEmpty()) {
+		if(::webAPI.isInitialized && ::user.isInitialized && ::token.isInitialized) {
 			Log.d(javaClass.simpleName, "Fetching Data")
-			val x = webAPI.getUser(loginData!!.id)
+
+			val x = webAPI.getUser(token, user.uid)
 				.subscribeOn(Schedulers.io())
 				.observeOn(AndroidSchedulers.mainThread())
 				.subscribe({ result: UserData ->
@@ -260,33 +317,6 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 				}, { error ->
 					Log.e(this.javaClass.canonicalName, error.toString())
 				})
-
-			val y = webAPI.getNode(loginData!!.id)
-				.subscribeOn(Schedulers.io())
-				.observeOn(AndroidSchedulers.mainThread())
-				.subscribe({ result: NodeData ->
-					onNodeData(result)
-				}, { error ->
-					Log.e(this.javaClass.canonicalName, error.toString())
-				})
-
-			this.refreshInfo = false
-		}
-	}
-
-	private fun checkStep() {
-		if(userData != null && nodeData != null && loginData != null) {
-			if(getCurrentSSID().compareTo(nodeData!!.ssid) == 0) {
-				viewPager.currentItem = 2
-				startScanner()
-			}
-			else {
-				viewPager.currentItem = 1
-
-				if(autoConnect) {
-					connectToWiFi()
-				}
-			}
 		}
 	}
 
@@ -302,18 +332,6 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		super.onAttach(context)
 
 		parentContext = context as FragmentActivity
-		scanner = ServiceScanner(getString(R.string.service_name), getString(R.string.service_type), context)
-		initSavedData()
-
-		if(!::wifiObserver.isInitialized) {
-			wifiObserver = WiFiListener.observe()
-			wifiObserver
-				.subscribeOn(Schedulers.io())
-				.observeOn(AndroidSchedulers.mainThread())
-				.subscribe {
-					onWifiChange(it)
-				}
-		}
 	}
 
 	private fun syncViews() {
@@ -336,7 +354,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private fun syncImage() {
 		if(userData != null) {
 			if(userData!!.profilePictureURL.compareTo("::test") != 0) {
-				// TODO
+				Picasso.get().load(userData!!.profilePictureURL).into(user_image)
 			}
 		}
 	}
@@ -346,7 +364,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		loginFragment.setRequestImage(userData != null && userData!!.profilePictureURL.isNotEmpty())
 		loginFragment.setRequestName(userData != null && userData!!.firstName.isNotEmpty())
 		loginFragment.setRequestNode(nodeData != null && nodeData!!.ssid.isNotEmpty())
-		loginFragment.setLoginState(loginData != null)
+		loginFragment.setLoginState(::token.isInitialized)
 	}
 
 	private fun syncWiFiFragment() {
@@ -365,27 +383,12 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private fun initSavedData() {
 		val prefs: SharedPreferences = parentContext.defaultSharedPreferences
 
-		getSavedLoginData(prefs)
+		if(auth.currentUser != null) {
+			user = auth.currentUser!!
+			fetchToken()
+		}
 		getSavedUserData(prefs)
 		getSavedWiFiData(prefs)
-	}
-
-	private fun saveLoginData(prefs: SharedPreferences) {
-		if(loginData != null) {
-			prefs.edit()
-				.putString(getString(R.string.connection_login_token_key), loginData!!.token)
-				.putString(getString(R.string.connection_login_user_id_key), loginData!!.id)
-				.apply()
-		}
-	}
-
-	private fun getSavedLoginData(prefs: SharedPreferences) {
-		val loginToken: String = prefs.getString(getString(R.string.connection_login_token_key), "")
-		val userID: String = prefs.getString(getString(R.string.connection_login_user_id_key), "")
-
-		if(loginToken.isNotEmpty() && userID.isNotEmpty()) {
-			loginData = LoginData(loginToken, userID)
-		}
 	}
 
 	private fun saveUserData(prefs: SharedPreferences) {
@@ -395,6 +398,9 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 				.putString(getString(R.string.connection_user_first_name_key), userData!!.firstName)
 				.putString(getString(R.string.connection_user_last_name_key), userData!!.lastName)
 				.putString(getString(R.string.connection_user_user_image_key), userData!!.profilePictureURL)
+				.putString("user_node", userData!!.node)
+				.putString("user_company", userData!!.company)
+				.putString("user_email", userData!!.email)
 				.apply()
 		}
 	}
@@ -404,9 +410,13 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		val firstName: String = prefs.getString(getString(R.string.connection_user_first_name_key), "")
 		val lastName: String = prefs.getString(getString(R.string.connection_user_last_name_key), "")
 		val image: String = prefs.getString(getString(R.string.connection_user_user_image_key), "")
+		val node: String = prefs.getString("user_node", "")
+		val company: String = prefs.getString("user_company", "")
+		val email: String = prefs.getString("user_email", "")
+
 
 		if(username.isNotEmpty() && firstName.isNotEmpty() && lastName.isNotEmpty() && image.isNotEmpty()) {
-			userData = UserData(username, firstName, lastName, image)
+			userData = UserData(username, firstName, lastName, image, node, company, email)
 		}
 	}
 
@@ -437,30 +447,39 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 
 	override fun onDetach() {
 		super.onDetach()
-		listener = null
-
-		Log.d(javaClass.simpleName, "Detached")
+		Log.d(javaClass.simpleName, "OnDetach")
 	}
 
 
 
 	override fun onPause() {
 		super.onPause()
+		Log.d(javaClass.simpleName, "OnPause")
 
 		reEnableNetworks()
-		Log.d(javaClass.simpleName, "OnPause")
 	}
 
 	override fun onResume() {
 		super.onResume()
+		Log.d(javaClass.simpleName, "OnResume")
 
-		if(autoConnect && nodeData != null) {
-			Log.d(javaClass.simpleName, "Trying to reconnect")
-			if(getCurrentSSID().compareTo(nodeData!!.ssid) != 0) {
+		if(!::token.isInitialized) {
+			viewPager.currentItem = 0
+		}
+		else if(userData == null && nodeData == null) {
+			viewPager.currentItem = 0
+			fetchData()
+		}
+		else if(getCurrentSSID().compareTo(nodeData!!.ssid) != 0) {
+			viewPager.currentItem = 1
+
+			if(autoConnect) {
 				connectToWiFi()
 			}
 		}
-		Log.d(javaClass.simpleName, "OnResume ${autoConnect} ${nodeData.toString()}")
+		else {
+			scanner.search()
+		}
 	}
 
 	private fun getCurrentSSID(): String {
@@ -481,10 +500,9 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	}
 
 	fun startScanner() {
-		Log.d(javaClass.simpleName, "Starting Scanner")
-		scanner.search {
-				host: String, port: Int ->
-			onServiceFound(host, port)
+		if(!scanner.hasStarted()) {
+			Log.d(javaClass.simpleName, "Starting Scanner")
+			scanner.search()
 		}
 	}
 
@@ -492,13 +510,13 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		adapter.getWebsocketFragment().setDeviceFound(true)
 
 		Log.d(javaClass.simpleName, "Connecting to ${host}:${port}")
+
 		NodeAPI.connect(host, port)
 		NodeAPI.api.observeWebSocketEvent()
 			.subscribeOn(Schedulers.io())
 			.observeOn(AndroidSchedulers.mainThread())
-			.filter {
-				event: WebSocket.Event ->
-					!(event is WebSocket.Event.OnMessageReceived)
+			.filter { event: WebSocket.Event ->
+				!(event is WebSocket.Event.OnMessageReceived)
 			}
 			.subscribe { event ->
 				when (event) {
@@ -508,12 +526,14 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 				}
 			}
 
+
 		if(NodeAPI.isInitialized()) {
 			onSocketOpened()
 		}
 	}
 
 	private fun onSocketOpened() {
+		Log.d(javaClass.simpleName, "Socket Openend")
 		adapter.getWebsocketFragment().setDeviceConnected(true)
 		scanner.stop()
 
@@ -601,7 +621,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		if(view != null && ssid.compareTo(lastSSID) != 0) {
 			NodeAPI.disconnect()
 			adapter.getWifiFragment().setCurrentWiFi(ssid)
-			checkStep()
+			checkWiFi()
 		}
 		if(autoConnect && !ssid.toLowerCase().contains("none") && nodeData != null && ssid.compareTo(nodeData!!.ssid) != 0) {
 			Log.d(javaClass.simpleName, "Reconnecting.")
@@ -609,6 +629,17 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		}
 
 		lastSSID = ssid
+	}
+
+	private fun checkWiFi() {
+		if(nodeData != null && getCurrentSSID().compareTo(nodeData!!.ssid) == 0) {
+			viewPager.currentItem = 2
+
+			startScanner()
+		}
+		else if(nodeData != null) {
+			viewPager.currentItem = 1
+		}
 	}
 
 	override fun onLoginReady() {
@@ -625,6 +656,13 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 
 	override fun onHotspotReady() {
 
+	}
+
+	override fun onStop() {
+		super.onStop()
+
+		scanner.stop()
+		NodeAPI.disconnect()
 	}
 
 	companion object {

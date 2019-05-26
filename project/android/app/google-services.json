@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "159496340098",
+    "firebase_url": "https://logitrack-cc85c.firebaseio.com",
+    "project_id": "logitrack-cc85c",
+    "storage_bucket": "logitrack-cc85c.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:159496340098:android:1a4af85183c54d80",
+        "android_client_info": {
+          "package_name": "tk.logitrack.logitrackcompanion"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "159496340098-1cmhdhm8k6m8t29qa73fpd4c88mso3sj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "tk.logitrack.logitrackcompanion",
+            "certificate_hash": "57d6502ed4fedb59b2af8b040f22a1ca2188a53b"
+          }
+        },
+        {
+          "client_id": "159496340098-u350kdi49g2u00l4kncnuub6p8rc1tos.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfQVcrimfG-xxETTVo7npDtRF503wKKeM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "159496340098-u350kdi49g2u00l4kncnuub6p8rc1tos.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -14,7 +14,7 @@ socket.on("open", () => {
     socket.send(JSON.stringify({
         "type": "start-data-stream",
         "data": {
-            "sources": ["pid-12", "pid-13", "pid-17"],
+            "sources": ["pid-12-readable", "pid-13-readable", "pid-17-readable", "gps-phone"],
             "interval": 500
         }
     }));

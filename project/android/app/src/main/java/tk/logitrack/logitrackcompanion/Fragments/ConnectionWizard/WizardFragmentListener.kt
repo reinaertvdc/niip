@@ -1,7 +1,7 @@
 package tk.logitrack.logitrackcompanion.Fragments.ConnectionWizard
 
 interface WizardFragmentListener {
-	fun onLogin(token: String, id: String)
+	fun onLogin()
 	fun onLogout()
 
 	fun onWiFiConnect()

@@ -69,7 +69,7 @@ object NodeAPI {
 	}
 
 	fun connect(host: String, port: Int) {
-		if(NodeAPI.isInitialized())
+		if(isInitialized())
 			disconnect()
 		createHTTPClient()
 		createWebsocket(host, port)

@@ -6,6 +6,7 @@ import { DataProvider, DataDescription } from "../data-provider/data-provider";
 import { EventEmitter } from "events";
 
 type LatePromise = {
+    uuid: string,
     resolve: Function,
     reject: Function
 }
@@ -90,6 +91,8 @@ class APIServer extends EventEmitter {
 
         connection.on("close", () => {
             console.log("[DataProvider] Socket closed, terminating.")
+            this.removeMQTTConnection(connection)
+            this.removeDataConnection(connection)
             connection.terminate()
         })
 
@@ -113,6 +116,7 @@ class APIServer extends EventEmitter {
             let keys: Set<string> = this.dataConnections.get(connection)
             
             keys.forEach(key => {
+                console.log("[APIServer] Removed key " + key)
                 DataProvider.getInstance().remove(key)
             });
             
@@ -328,6 +332,7 @@ class APIServer extends EventEmitter {
     public getDataFromConnection(connection, key, event) {
         let promise = new Promise<any>((resolve, reject) => {
             let latePromise = {
+                uuid: uuid(),
                 resolve,
                 reject
             }
@@ -336,14 +341,25 @@ class APIServer extends EventEmitter {
                 this.dataWaitList.set(key, [])
             }
             this.dataWaitList.get(key).push(latePromise)
+
+            setTimeout(() => {
+                if(this.dataWaitList.has(key)) {
+                    this.dataWaitList.get(key).forEach((checkPromise, index) => {
+                        if(checkPromise.uuid.localeCompare(latePromise.uuid) == 0) {
+                            checkPromise.resolve(null);
+                            this.dataWaitList.get(key).slice(index)
+                        }
+                    });
+                }
+            }, 5000)
         })
 
-        connection.send({
+        connection.send(JSON.stringify({
             type: event,
             data: {
 
             }
-        })
+        }))
 
         return promise
     }

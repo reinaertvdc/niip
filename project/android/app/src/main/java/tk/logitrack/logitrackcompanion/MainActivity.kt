@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.tinder.scarlet.lifecycle.android.AndroidLifecycle
+import io.reactivex.plugins.RxJavaPlugins
 import tk.logitrack.logitrackcompanion.Fragments.*
 import tk.logitrack.logitrackcompanion.Fragments.ConnectionWizard.ConnectionFragment
 import tk.logitrack.logitrackcompanion.Helpers.KillSwitchLifecycle
@@ -61,6 +62,10 @@ class MainActivity : AppCompatActivity() {
         fragmentManager.beginTransaction().add(R.id.fragment_container, mapFragment, "mapFragment").hide(mapFragment).commit()
         fragmentManager.beginTransaction().add(R.id.fragment_container, obdFragment, "obdFragment").hide(obdFragment).commit()
         fragmentManager.beginTransaction().add(R.id.fragment_container, connectionFragment, "connectionFragment").commit()
+
+        RxJavaPlugins.setErrorHandler {
+
+        }
     }
 
     override fun onResume() {
