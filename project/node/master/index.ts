@@ -118,6 +118,7 @@ if(logger == null) {
 		console.log("[MAIN] OBD disconnected, removing sources from dataprovider.");
 		for(let i: number = 0; i < supportedPIDs.length; i++) {
 			provider.remove("pid-" + supportedPIDs[i]);
+			provider.remove("pid-" + supportedPIDs[i] + "-readable");
 		}
 	});
 
@@ -125,6 +126,7 @@ if(logger == null) {
 		for (let index = 0; index < pids.length; index++) {
 			const pid: number = pids[index];
 			provider.announceNewData("pid-" + pid)
+			provider.announceNewData("pid-" + pid + "-readable")
 		}
 	});
 }
