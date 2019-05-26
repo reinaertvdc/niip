@@ -7,6 +7,7 @@ interface InterfaceProps {
   error?: any;
   history?: any;
   password?: string;
+  redir?: string;
 }
 
 interface InterfaceState {
@@ -44,7 +45,12 @@ export class SignInForm extends React.Component<
       .doSignInWithEmailAndPassword(email, password)
       .then(() => {
         this.setState(() => ({ ...SignInForm.INITIAL_STATE }));
-        history.push(DASHBOARD);
+        if (this.props.redir !== null && this.props.redir !== undefined) {
+          history.push(this.props.redir);
+        }
+        else {
+          history.push(DASHBOARD);
+        }
       })
       .catch(error => {
         this.setState(SignInForm.propKey("error", error));

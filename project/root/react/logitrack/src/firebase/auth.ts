@@ -18,9 +18,14 @@ export const doPasswordReset = (email: string) =>
   auth.sendPasswordResetEmail(email);
 
 // Password Change
-export const doPasswordUpdate = async (password: string) => {
+export const doPasswordUpdate: (password: string) => Promise<{ok:boolean,error:Error|undefined}> = async (password: string) => {
   if (auth.currentUser) {
-    await auth.currentUser.updatePassword(password);
+    try {
+      await auth.currentUser.updatePassword(password);
+      return {ok:true, error: undefined};
+    } catch (e) {
+      return {ok:false,error:e};
+    }
   }
   throw Error("No auth.currentUser!");
 };
