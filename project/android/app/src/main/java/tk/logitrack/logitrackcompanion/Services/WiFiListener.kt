@@ -24,20 +24,12 @@ object WiFiListener: BroadcastReceiver() {
 	override fun onReceive(context: Context?, intent: Intent?) {
 		if(intent != null && context != null) {
 			if(intent.action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
-				val info = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO) as NetworkInfo
-
-				if(info.isConnected) {
-					Log.d(javaClass.simpleName, "Connected")
-					android.os.Handler().postDelayed(
-						{
-							getCurrentSSID(context)
-						},
-						1000
-					)
-				}
-				else {
-					emit("None")
-				}
+				android.os.Handler().postDelayed(
+					{
+						getCurrentSSID(context)
+					},
+					1000
+				)
 			}
 		}
 	}
@@ -45,17 +37,14 @@ object WiFiListener: BroadcastReceiver() {
 	fun getCurrentSSID(context: Context) {
 		var ssid: String = "None"
 
-		val connManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-		val networkInfo = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
-		if (networkInfo.isConnected) {
-			val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
-			val connectionInfo = wifiManager.connectionInfo
-			if (connectionInfo != null && connectionInfo.ssid.isNotEmpty()) {
-				ssid = connectionInfo.ssid
-				ssid = ssid.removeRange(0, 1)
-				ssid = ssid.removeRange(ssid.length - 1, ssid.length)
-			}
+		val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+		val connectionInfo = wifiManager.connectionInfo
+		if (connectionInfo != null && connectionInfo.ssid.isNotEmpty()) {
+			ssid = connectionInfo.ssid
+			ssid = ssid.removeRange(0, 1)
+			ssid = ssid.removeRange(ssid.length - 1, ssid.length)
 		}
+
 
 		emit(ssid)
 	}

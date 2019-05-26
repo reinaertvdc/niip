@@ -12,10 +12,10 @@ import tk.logitrack.logitrackcompanion.Data.UserData
 
 interface WebAPI {
 	@GET("nodes/{node}")
-	fun getNode(@Header("Authorization") token: String, @Path("node") nodeID: String): Observable<NodeData>
+	fun getNode(@Header("Authorization") authorization: String, @Path("node") nodeID: String): Observable<NodeData>
 
 	@GET("users/{user}")
-	fun getUser(@Header("Authorization") token: String, @Path("user") user: String): Observable<UserData>
+	fun getUser(@Header("Authorization") authorization: String, @Path("user") user: String): Observable<UserData>
 
 	companion object {
 		fun create(): WebAPI {
@@ -24,7 +24,7 @@ interface WebAPI {
 					RxJava2CallAdapterFactory.create())
 				.addConverterFactory(
 					MoshiConverterFactory.create())
-				.baseUrl("http://logitrack.tk/api/" /*"http://192.168.1.196:5454/api/"*/)
+				.baseUrl("https://logitrack.tk/api/" /*"http://192.168.1.196:5454/api/"*/)
 				.build()
 
 			return retrofit.create(WebAPI::class.java)
