@@ -7,6 +7,7 @@ import { OBD2Playback } from "./obd2/obd2-playback";
 import { DataRouter } from './data-router/data-router';
 import { ConnectionManager, AP, APtype } from './data-router/connection-manager';
 import { readFileSync } from "fs";
+import { NumericBase64 } from "./data-router/base64-helper";
 
 const program = require("commander");
 
@@ -160,7 +161,7 @@ else {
 	if (program.interfaces !== undefined && program.interfaces.length > 0) {
 		ifaces = program.interfaces;
 	}
-	let connector = new ConnectionManager(ifaces, 'LogiTrack-'+id, password, '10.10.10.1');
+	let connector = new ConnectionManager(ifaces, 'LogiTrack-'+NumericBase64.encode(id), password, '10.10.10.1');
 	let router = new DataRouter(server, id, password, connector);
 	//TODO: request extra AP details from server
 }
