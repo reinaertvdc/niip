@@ -1,5 +1,5 @@
 import * as CM from './connection-manager';
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { MQTT } from './mqtt-helper';
 import { sleep } from './sleep-util';
 import { NumericBase64 } from './base64-helper'
@@ -170,13 +170,18 @@ export class DataRouter {
     }
 
     private async initializeAPs(): Promise<void> {
-        return new Promise<void>(((resolve)=>{
-            this.initializeAPsFromFile('ap.json').then(((val: boolean)=>{
+        await this.initializeAPsFromFile('ap.json');
+        let ok: boolean = false;
+        while (!ok) {
+            ok = await new Promise<boolean>(((resolve)=>{
                 this.initializeAPsFromDatabase().then(((val: boolean)=>{
-                    resolve();
+                    resolve(val);
                 }).bind(this));
             }).bind(this));
-        }).bind(this));
+            if (!ok) {
+                await sleep(1000);
+            }
+        }
     }
 
     private async initializeAPsFromFile(filename: string): Promise<boolean> {
@@ -222,7 +227,17 @@ export class DataRouter {
     }
 
     private async initializeAPsFromDatabase(): Promise<boolean> {
-        let client = await this._pg.connect();
+        let client: PoolClient|null = null;
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Could not connect to database - Could not retrieve AP\'s');
+                return false;
+            }
+        } catch (e) {
+            console.log('Data Router - Could not connect to database - Could not retrieve AP\'s');
+            return false;
+        }
         try {
             await client.query('CREATE TABLE IF NOT EXISTS ap ( ssid character varying(32) PRIMARY KEY, psk character(10) NOT NULL, type smallint NOT NULL, cost numeric NOT NULL, speed numeric NOT NULL )');
         } catch (e) {
@@ -230,7 +245,16 @@ export class DataRouter {
             return false;
         }
         client.release();
-        client = await this._pg.connect();
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Could not connect to database - Could not retrieve AP\'s');
+                return false;
+            }
+        } catch (e) {
+            console.log('Data Router - Could not connect to database - Could not retrieve AP\'s');
+            return false;
+        }
         let result = undefined;
         try {
             result = await client.query('select ssid, psk, type, cost, speed from ap');
@@ -423,7 +447,17 @@ class DataBuffer {
 
     public async tableCheck(): Promise<void> {
         if (this._tableChecked) { return; }
-        const client = await this._pg.connect();
+        let client: PoolClient|null = null;
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Data Buffer - Could not connect to database');
+                return;
+            }
+        } catch (e) {
+            console.log('Data Router - Data Buffer - Could not connect to database');
+            return;
+        }
         try {
             await client.query('CREATE TABLE IF NOT EXISTS buffer ( id serial PRIMARY KEY, timestamp timestamp NOT NULL, data json NOT NULL, urgency smallint NOT NULL )');
         } catch (e) { console.error(e); }
@@ -433,7 +467,17 @@ class DataBuffer {
 
     public async push(data: Data): Promise<boolean> {
         await this.tableCheck();
-        const client = await this._pg.connect();
+        let client: PoolClient|null = null;
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Data Buffer - Could not connect to database');
+                return false;
+            }
+        } catch (e) {
+            console.log('Data Router - Data Buffer - Could not connect to database');
+            return false;
+        }
         let insertedId: number = -1;
         try {
             let result = await client.query('INSERT INTO buffer (timestamp,data,urgency) VALUES (to_timestamp($1), $2, $3) RETURNING id', [data.timestamp, JSON.stringify(data.data), data.urgency]);
@@ -453,7 +497,17 @@ class DataBuffer {
 
     public async peek(minUrgency: DataUrgency = DataUrgency.WHENEVER, maxUrgency: DataUrgency = DataUrgency.ASAP, count: number = 100): Promise<Array<Data>> {
         await this.tableCheck();
-        const client = await this._pg.connect();
+        let client: PoolClient|null = null;
+        try {
+            client = await this._pg.connect();
+            if (client === null) {
+                console.log('Data Router - Data Buffer - Could not connect to database');
+                return [];
+            }
+        } catch (e) {
+            console.log('Data Router - Data Buffer - Could not connect to database');
+            return [];
+        }
         let ret: Array<Data> = [];
         let curU: DataUrgency = maxUrgency;
         while (curU >= minUrgency && ret.length < count) {
@@ -480,7 +534,17 @@ class DataBuffer {
             let id: number|null = ids[i];
             if (id === null) { continue; }
             let qs: string = 'DELETE FROM buffer WHERE id=' + id;
-            const client = await this._pg.connect();
+            let client: PoolClient|null = null;
+            try {
+                client = await this._pg.connect();
+                if (client === null) {
+                    console.log('Data Router - Data Buffer - Could not connect to database');
+                    return;
+                }
+            } catch (e) {
+                console.log('Data Router - Data Buffer - Could not connect to database');
+                return;
+            }
             try {
                 await client.query(qs);
             } catch (e) {
