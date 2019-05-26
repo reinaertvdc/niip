@@ -5,15 +5,11 @@ import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentPagerAdapter
 
 class ConnectionWizardAdapter(fragmentManager: FragmentManager, listener: WizardFragmentListener): FragmentPagerAdapter(fragmentManager) {
-	private lateinit var hotspotFragment: WizardHotspot
 	private lateinit var loginFragment: WizardLogin
 	private lateinit var webSocketFragment: WizardWebSocket
 	private lateinit var wifiFragment: WizardWIFI
 
 	init {
-		if(!::hotspotFragment.isInitialized) {
-			hotspotFragment = WizardHotspot()
-		}
 		if(!::loginFragment.isInitialized) {
 			loginFragment = WizardLogin()
 		}
@@ -25,7 +21,6 @@ class ConnectionWizardAdapter(fragmentManager: FragmentManager, listener: Wizard
 		}
 
 		loginFragment.setListener(listener)
-		hotspotFragment.setListener(listener)
 		webSocketFragment.setListener(listener)
 		wifiFragment.setListener(listener)
 	}
@@ -35,13 +30,12 @@ class ConnectionWizardAdapter(fragmentManager: FragmentManager, listener: Wizard
 			0 -> return loginFragment
 			1 -> return wifiFragment
 			2 -> return webSocketFragment
-			3 -> return hotspotFragment
 			else -> return loginFragment
 		}
 	}
 
 	override fun getCount(): Int {
-		return 4
+		return 3
 	}
 
 	fun getLoginFragment(): WizardLogin {
@@ -54,9 +48,5 @@ class ConnectionWizardAdapter(fragmentManager: FragmentManager, listener: Wizard
 
 	fun getWebsocketFragment(): WizardWebSocket {
 		return webSocketFragment
-	}
-
-	fun getHotspotFragment(): WizardHotspot {
-		return hotspotFragment
 	}
 }

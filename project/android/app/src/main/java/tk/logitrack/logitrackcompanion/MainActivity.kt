@@ -61,7 +61,6 @@ class MainActivity : AppCompatActivity() {
         fragmentManager.beginTransaction().add(R.id.fragment_container, mapFragment, "mapFragment").hide(mapFragment).commit()
         fragmentManager.beginTransaction().add(R.id.fragment_container, obdFragment, "obdFragment").hide(obdFragment).commit()
         fragmentManager.beginTransaction().add(R.id.fragment_container, connectionFragment, "connectionFragment").commit()
-
     }
 
     override fun onResume() {

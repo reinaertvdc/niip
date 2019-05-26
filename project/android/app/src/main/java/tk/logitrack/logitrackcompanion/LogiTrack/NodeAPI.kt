@@ -32,6 +32,10 @@ object NodeAPI {
 	private lateinit var mStartDataStreamEmitter: Emitter<StandardReply>
 	private lateinit var mStopDataStreamEmitter: Emitter<StandardReply>
 	private lateinit var mDataStreamTickEmitter: Emitter<StandardReply>
+	private lateinit var mMQTTForwardEmitter: Emitter<StandardReply>
+	private lateinit var mMQTTStartEmitter: Emitter<StandardReply>
+	private lateinit var mMQTTStopEmitter: Emitter<StandardReply>
+	private lateinit var mGetGPSEmitter: Emitter<StandardReply>
 	private val mStartDataStreamObservable: Observable<StandardReply> = Observable.create {
 		mStartDataStreamEmitter = it
 	}
@@ -41,6 +45,19 @@ object NodeAPI {
 	private val mDataStreamTickObservable: Observable<StandardReply> = Observable.create {
 		mDataStreamTickEmitter = it
 	}
+	private val mMQTTForwardObservable: Observable<StandardReply> = Observable.create {
+		mMQTTForwardEmitter = it
+	}
+	private val mMQTTStartObservable: Observable<StandardReply> = Observable.create {
+		mMQTTStartEmitter = it
+	}
+	private val mMQTTStopObservable: Observable<StandardReply> = Observable.create {
+		mMQTTStopEmitter = it
+	}
+	private val mGetGPSObservable: Observable<StandardReply> = Observable.create {
+		mGetGPSEmitter = it
+	}
+
 
 	init {
 		setBackoffStrategy(
@@ -73,6 +90,10 @@ object NodeAPI {
 					"start-data-stream" -> onStartDataStream(it)
 					"stop-data-stream" -> onStopDataStream(it)
 					"data-stream-tick" -> onDataStreamTick(it)
+					"mqtt-forward" -> onMQTTForward(it)
+					"mqtt-start" -> onMQTTStart(it)
+					"mqtt-stop" -> onMQTTStop(it)
+					"get-gps" -> onGetGPS(it)
 				}
 			}
 	}
@@ -107,6 +128,30 @@ object NodeAPI {
 	fun onDataStreamTick(reply: StandardReply) {
 		if(::mDataStreamTickEmitter.isInitialized) {
 			mDataStreamTickEmitter.onNext(reply)
+		}
+	}
+
+	fun onMQTTForward(reply: StandardReply) {
+		if(::mMQTTForwardEmitter.isInitialized) {
+			mMQTTForwardEmitter.onNext(reply)
+		}
+	}
+
+	fun onMQTTStart(reply: StandardReply) {
+		if(::mMQTTStartEmitter.isInitialized) {
+			mMQTTStartEmitter.onNext(reply)
+		}
+	}
+
+	fun onMQTTStop(reply: StandardReply) {
+		if(::mMQTTStopEmitter.isInitialized) {
+			mMQTTStopEmitter.onNext(reply)
+		}
+	}
+
+	fun onGetGPS(reply: StandardReply) {
+		if(::mGetGPSEmitter.isInitialized) {
+			mGetGPSEmitter.onNext(reply)
 		}
 	}
 
@@ -164,6 +209,22 @@ object NodeAPI {
 
 	fun observeDataStreamTick(): Observable<StandardReply> {
 		return mDataStreamTickObservable
+	}
+
+	fun observeMQTTForward(): Observable<StandardReply> {
+		return mMQTTForwardObservable
+	}
+
+	fun observeMQTTStart(): Observable<StandardReply> {
+		return mMQTTStartObservable
+	}
+
+	fun observeMQTTStop(): Observable<StandardReply> {
+		return mMQTTStopObservable
+	}
+
+	fun observeGetGPS(): Observable<StandardReply> {
+		return mGetGPSObservable
 	}
 
 	enum class Event {

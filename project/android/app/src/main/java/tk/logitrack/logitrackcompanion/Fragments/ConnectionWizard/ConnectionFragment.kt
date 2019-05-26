@@ -1,8 +1,13 @@
 package tk.logitrack.logitrackcompanion.Fragments.ConnectionWizard
 
+import android.Manifest
 import android.content.Context
 import android.content.Context.WIFI_SERVICE
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.wifi.WifiConfiguration
 import android.net.wifi.WifiManager
@@ -14,6 +19,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager.widget.ViewPager
 import com.afollestad.viewpagerdots.DotsIndicator
@@ -26,8 +32,7 @@ import tk.logitrack.logitrackcompanion.Data.LoginData
 import tk.logitrack.logitrackcompanion.Data.NodeData
 import tk.logitrack.logitrackcompanion.Data.UserData
 import tk.logitrack.logitrackcompanion.Fragments.LongLifeFragment
-import tk.logitrack.logitrackcompanion.LogiTrack.NodeAPI
-import tk.logitrack.logitrackcompanion.LogiTrack.WebAPI
+import tk.logitrack.logitrackcompanion.LogiTrack.*
 import tk.logitrack.logitrackcompanion.R
 import tk.logitrack.logitrackcompanion.R.layout
 import tk.logitrack.logitrackcompanion.ServiceScanner
@@ -59,6 +64,9 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private lateinit var wifiObserver: Observable<String>
 	private val disabledNetworks: MutableList<Int> = ArrayList()
 	private var lastSSID: String = ""
+
+	private lateinit var lastLocation: Location
+	private var refreshInfo: Boolean = true
 
 	override fun onCreateView(
 		inflater: LayoutInflater, container: ViewGroup?,
@@ -116,11 +124,81 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	override fun onActivityCreated(savedInstanceState: Bundle?) {
 		super.onActivityCreated(savedInstanceState)
 
-		webAPI = WebAPI.create()
+		initApi()
+	}
+
+	private fun initApi() {
+		WebAPI.create()
+		val x = NodeAPI.observeMQTTStart().subscribe {
+			if(nodeData != null && nodeData!!.id.isNotEmpty()) {
+				MQTTClient.connect(parentContext, nodeData!!.id, nodeData!!.key)
+			}
+		}
+
+		NodeAPI.observeMQTTStop().subscribe {
+			MQTTClient.disconnect()
+		}
+
+		NodeAPI.observeMQTTForward().subscribe {
+			if(MQTTClient.active) {
+				MQTTClient.publish(nodeData!!.id, it.data.get("input") as String)
+			}
+		}
+
+		NodeAPI.observeGetGPS().subscribe {
+			sendGPS()
+		}
+
+		MQTTClient.observeConnect().subscribe {
+			NodeAPI.api.sendStartMQTT(StartMQTT())
+			MQTTClient.subscribe(nodeData!!.id)
+		}
+
+		MQTTClient.observeMessage().subscribe {
+			NodeAPI.api.sendMQTTForward(MQTTForward(it.message!!.payload.toString()))
+		}
+	}
+
+	private fun initGPS() {
+		// Acquire a reference to the system Location Manager
+		val locationManager = parentContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
+		// Define a listener that responds to location updates
+		val locationListener = object : LocationListener {
+
+			override fun onLocationChanged(location: Location) {
+				// Called when a new location is found by the network location provider.
+				if(!::lastLocation.isInitialized) {
+					lastLocation = location
+					NodeAPI.api.sendAdvertiseData(AdvertiseData("get-gps", "gps-phone"))
+				}
+				else {
+					lastLocation = location
+				}
+			}
+
+			override fun onStatusChanged(provider: String, status: Int, extras: Bundle) {
+			}
+
+			override fun onProviderEnabled(provider: String) {
+			}
+
+			override fun onProviderDisabled(provider: String) {
+			}
+		}
+
+		if(ContextCompat.checkSelfPermission(parentContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+			// Register the listener with the Location Manager to receive location updates
+			locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0f,locationListener)
+		}
+		else {
+			// Request Permission
+		}
 	}
 
 	override fun onFragmentActive() {
-
+		initGPS()
+		fetchData()
 	}
 
 	override fun onFragmentNonActive() {
@@ -132,27 +210,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		if(::parentContext.isInitialized)
 			saveLoginData(parentContext.defaultSharedPreferences)
 
-		webAPI.getUser(id)
-			.subscribeOn(Schedulers.io())
-			.observeOn(AndroidSchedulers.mainThread())
-			.subscribe({
-				result: UserData ->
-					onUserData(result)
-			}, {
-				error ->
-					Log.e(this.javaClass.canonicalName, error.toString())
-			})
-
-		webAPI.getNode(id)
-			.subscribeOn(Schedulers.io())
-			.observeOn(AndroidSchedulers.mainThread())
-			.subscribe({
-				result: NodeData ->
-					onNodeData(result)
-			}, {
-				error ->
-					Log.e(this.javaClass.canonicalName, error.toString())
-			})
+		fetchData()
 	}
 
 	override fun onLogout() {
@@ -182,6 +240,30 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 			saveWiFiData(parentContext.defaultSharedPreferences)
 
 		checkStep()
+	}
+
+	private fun fetchData() {
+		if(::webAPI.isInitialized && loginData != null && loginData!!.id.isNotEmpty()) {
+			val x = webAPI.getUser(loginData!!.id)
+				.subscribeOn(Schedulers.io())
+				.observeOn(AndroidSchedulers.mainThread())
+				.subscribe({ result: UserData ->
+					onUserData(result)
+				}, { error ->
+					Log.e(this.javaClass.canonicalName, error.toString())
+				})
+
+			val y = webAPI.getNode(loginData!!.id)
+				.subscribeOn(Schedulers.io())
+				.observeOn(AndroidSchedulers.mainThread())
+				.subscribe({ result: NodeData ->
+					onNodeData(result)
+				}, { error ->
+					Log.e(this.javaClass.canonicalName, error.toString())
+				})
+
+			this.refreshInfo = false
+		}
 	}
 
 	private fun checkStep() {
@@ -301,6 +383,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private fun saveUserData(prefs: SharedPreferences) {
 		if(userData != null) {
 			prefs.edit()
+				.putString(getString(R.string.user_username_key), userData!!.username)
 				.putString(getString(R.string.connection_user_first_name_key), userData!!.firstName)
 				.putString(getString(R.string.connection_user_last_name_key), userData!!.lastName)
 				.putString(getString(R.string.connection_user_user_image_key), userData!!.profilePictureURL)
@@ -309,12 +392,13 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	}
 
 	private fun getSavedUserData(prefs: SharedPreferences) {
+		val username: String = prefs.getString(getString(R.string.user_username_key), "")
 		val firstName: String = prefs.getString(getString(R.string.connection_user_first_name_key), "")
 		val lastName: String = prefs.getString(getString(R.string.connection_user_last_name_key), "")
 		val image: String = prefs.getString(getString(R.string.connection_user_user_image_key), "")
 
-		if(firstName.isNotEmpty() && lastName.isNotEmpty() && image.isNotEmpty()) {
-			userData = UserData(firstName, lastName, image)
+		if(username.isNotEmpty() && firstName.isNotEmpty() && lastName.isNotEmpty() && image.isNotEmpty()) {
+			userData = UserData(username, firstName, lastName, image)
 		}
 	}
 
@@ -323,6 +407,8 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 			prefs.edit()
 				.putString(getString(R.string.connection_wifi_ssid_key), nodeData!!.ssid)
 				.putString(getString(R.string.connection_wifi_psk_key), nodeData!!.psk)
+				.putString(getString(R.string.connection_wifi_id_key), nodeData!!.id)
+				.putString(getString(R.string.connection_wifi_id_key), nodeData!!.key)
 				.putBoolean(getString(R.string.connection_wifi_auto_connect_key), autoConnect)
 				.apply()
 		}
@@ -331,10 +417,13 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private fun getSavedWiFiData(prefs: SharedPreferences) {
 		val ssid: String = prefs.getString(getString(R.string.connection_wifi_ssid_key), "")
 		val psk: String = prefs.getString(getString(R.string.connection_wifi_psk_key), "")
+		val id: String = prefs.getString(getString(R.string.connection_wifi_id_key), "")
+		val key: String = prefs.getString(getString(R.string.connection_wifi_key_key), "")
+
 		autoConnect = prefs.getBoolean(getString(R.string.connection_wifi_auto_connect_key), false)
 
-		if(ssid.isNotEmpty() && psk.isNotEmpty()) {
-			nodeData = NodeData(ssid, psk)
+		if(ssid.isNotEmpty() && psk.isNotEmpty() && id.isNotEmpty() && key.isNotEmpty()) {
+			nodeData = NodeData(ssid, psk, id, key)
 		}
 	}
 
@@ -419,6 +508,12 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private fun onSocketOpened() {
 		adapter.getWebsocketFragment().setDeviceConnected(true)
 		scanner.stop()
+
+		NodeAPI.api.sendAdvertiseMQTTForwarder(MQTTForwardAdvertisement())
+
+		if(::lastLocation.isInitialized) {
+			NodeAPI.api.sendAdvertiseData(AdvertiseData("get-gps", "gps-phone"))
+		}
 	}
 
 	private fun onSocketClosed() {
@@ -482,6 +577,16 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		//manager.reconnect()
 		manager.saveConfiguration()
 		disabledNetworks.clear()
+	}
+
+	private fun sendGPS() {
+		if(::lastLocation.isInitialized) {
+			val data: MutableMap<String, Any> = HashMap()
+			data.set("key", "gps-phone")
+			data.set("longitude", lastLocation.longitude)
+			data.set("lattitude", lastLocation.latitude)
+			NodeAPI.api.sendProvideData(ProvideData(data))
+		}
 	}
 
 	private fun onWifiChange(ssid: String) {
