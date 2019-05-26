@@ -112,7 +112,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 
 		viewPager = view.findViewById(R.id.connection_wizard)
 		adapter = ConnectionWizardAdapter(
-			parentContext.supportFragmentManager,
+			childFragmentManager,
 			this
 		)
 
@@ -278,7 +278,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		if(::parentContext.isInitialized)
 			saveUserData(parentContext.defaultSharedPreferences)
 
-		val y = webAPI.getNode(token, userData!!.node)
+		val y = webAPI.getNode("Bearer " + token, userData!!.node)
 			.subscribeOn(Schedulers.io())
 			.observeOn(AndroidSchedulers.mainThread())
 			.subscribe({ result: NodeData ->
@@ -309,7 +309,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		if(::webAPI.isInitialized && ::user.isInitialized && ::token.isInitialized) {
 			Log.d(javaClass.simpleName, "Fetching Data")
 
-			val x = webAPI.getUser(token, user.uid)
+			val x = webAPI.getUser("Bearer " + token, user.uid)
 				.subscribeOn(Schedulers.io())
 				.observeOn(AndroidSchedulers.mainThread())
 				.subscribe({ result: UserData ->
@@ -426,7 +426,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 				.putString(getString(R.string.connection_wifi_ssid_key), nodeData!!.ssid)
 				.putString(getString(R.string.connection_wifi_psk_key), nodeData!!.psk)
 				.putString(getString(R.string.connection_wifi_id_key), nodeData!!.id)
-				.putString(getString(R.string.connection_wifi_id_key), nodeData!!.key)
+				.putString(getString(R.string.connection_wifi_key_key), nodeData!!.key)
 				.putBoolean(getString(R.string.connection_wifi_auto_connect_key), autoConnect)
 				.apply()
 		}
@@ -466,7 +466,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		if(!::token.isInitialized) {
 			viewPager.currentItem = 0
 		}
-		else if(userData == null && nodeData == null) {
+		else if(userData == null || nodeData == null) {
 			viewPager.currentItem = 0
 			fetchData()
 		}
@@ -485,17 +485,14 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	private fun getCurrentSSID(): String {
 		var ssid = "None"
 
-		val connManager = parentContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-		val networkInfo = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
-		if (networkInfo.isConnected) {
-			val wifiManager = context!!.getSystemService(Context.WIFI_SERVICE) as WifiManager
-			val connectionInfo = wifiManager.connectionInfo
-			if (connectionInfo != null && connectionInfo.ssid.isNotEmpty()) {
-				ssid = connectionInfo.ssid
-				ssid = ssid.removeRange(0, 1)
-				ssid = ssid.removeRange(ssid.length - 1, ssid.length)
-			}
+		val wifiManager = context!!.getSystemService(Context.WIFI_SERVICE) as WifiManager
+		val connectionInfo = wifiManager.connectionInfo
+		if (connectionInfo != null && connectionInfo.ssid.isNotEmpty()) {
+			ssid = connectionInfo.ssid
+			ssid = ssid.removeRange(0, 1)
+			ssid = ssid.removeRange(ssid.length - 1, ssid.length)
 		}
+
 		return ssid
 	}
 
@@ -624,6 +621,7 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 			checkWiFi()
 		}
 		if(autoConnect && !ssid.toLowerCase().contains("none") && nodeData != null && ssid.compareTo(nodeData!!.ssid) != 0) {
+			adapter.getWebsocketFragment().setDeviceFound(false)
 			Log.d(javaClass.simpleName, "Reconnecting.")
 			connectToWiFi()
 		}
@@ -632,12 +630,15 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	}
 
 	private fun checkWiFi() {
+		Log.d(javaClass.simpleName, nodeData.toString())
+
 		if(nodeData != null && getCurrentSSID().compareTo(nodeData!!.ssid) == 0) {
 			viewPager.currentItem = 2
 
 			startScanner()
 		}
 		else if(nodeData != null) {
+			adapter.getWebsocketFragment().setDeviceFound(true)
 			viewPager.currentItem = 1
 		}
 	}
