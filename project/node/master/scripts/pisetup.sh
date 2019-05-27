@@ -87,8 +87,8 @@ npm install -g pm2 > /dev/null 2>&1
 #npm install -g typescript > /dev/null 2>&1
 #echo '    ts-node'
 #npm install -g ts-node > /dev/null 2>&1
-#echo '    cd /home/pi/niip/ ; npm install'
-#su -c "cd /home/pi/niip/ ; npm install" - pi > /dev/null 2>&1
+echo '    cd /home/pi/niip/ ; npm install'
+su -c "cd /home/pi/niip/ ; npm install" - pi > /dev/null 2>&1
 
 # Install docker and docker-compose
 echo 'Installing docker & docker-compose'
