@@ -4,6 +4,8 @@ import { Switch, Route, Redirect } from "react-router-dom";
 import DashboardCompany from "./DashboardCompany";
 import { DASHBOARD } from "../../constants/routes";
 import CompanyList, { Company } from "../../components/CompanyList";
+import { AuthUserContext } from "../../firebase/AuthUserContext";
+import Axios from 'axios'
 
 interface DashboardComponentState {
   companies: Array<Company>
@@ -38,17 +40,27 @@ class DashboardComponent extends React.Component<{}, DashboardComponentState> {
 
   public render() {
     return (
-      <Switch>
-        <Route exact={false} path={DASHBOARD+'/:id'} render={(props)=>{return (
-          <div>
-            <CompanyList companies={this.state.companies} />
-            <hr />
-            <DashboardCompany {...props} />
-          </div>
-        )}} />
-        <Route exact={true} path={DASHBOARD}><CompanyList companies={this.state.companies} /></Route>
-        <Route exact={false} path={DASHBOARD}><Redirect to={DASHBOARD} /></Route>
-      </Switch>
+      <AuthUserContext.Consumer>{authUser=>{
+        authUser.getIdToken().then((token:string)=>{
+          console.log(token);
+          Axios.get('https://logitrack.tk').then((value)=>{
+            console.log(value);
+          });
+        });
+        return (
+          <Switch>
+            <Route exact={false} path={DASHBOARD+'/:id'} render={(props)=>{return (
+              <div>
+                <CompanyList companies={this.state.companies} />
+                <hr />
+                <DashboardCompany {...props} />
+              </div>
+            )}} />
+            <Route exact={true} path={DASHBOARD}><CompanyList companies={this.state.companies} /></Route>
+            <Route exact={false} path={DASHBOARD}><Redirect to={DASHBOARD} /></Route>
+          </Switch>
+        );
+      }}</AuthUserContext.Consumer>
     );
   }
 }

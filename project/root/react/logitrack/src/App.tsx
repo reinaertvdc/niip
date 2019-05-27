@@ -67,8 +67,8 @@ class AppComponent extends React.Component<{},{authUser:User|null,redir:string|n
   )
 
   private AppAuth = () => {
-    console.log('AUTH');
-    console.log(this.state);
+    // console.log('AUTH');
+    // console.log(this.state);
     return (
       <BrowserRouter>
         <div>
@@ -85,8 +85,8 @@ class AppComponent extends React.Component<{},{authUser:User|null,redir:string|n
   };
 
   private AppNonAuth = () => {
-    console.log('NONAUTH');
-    console.log(this.state);
+    // console.log('NONAUTH');
+    // console.log(this.state);
     return (
       <BrowserRouter>
         <Switch>
