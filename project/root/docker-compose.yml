@@ -6,10 +6,13 @@ services:
     depends_on:
       - 'db'
       - 'dbmgr'
+      - 'influx'
     env_file:
       - 'env/app.env'
       - 'env/db.env'
       - 'env/dbmgr.env'
+      - 'env/influx.env'
+      - 'env/influxdb.env'
       - 'env/mqtt.env'
       - 'env/postgres.env'
     networks:
@@ -48,7 +51,15 @@ services:
     ports:
       - "1883:1883/tcp"
       - "8883:8883/tcp"
+      - "10.18.0.5:443:8883/tcp"
     restart: 'always'
+  influx:
+    build: 'services/influx'
+    env_file:
+      - 'env/influxdb.env'
+    restart: 'always'
+    volumes:
+      - './services/influx/influxdb/:/var/lib/influxdb/'
 
 networks:
     default:

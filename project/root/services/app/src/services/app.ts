@@ -1,5 +1,6 @@
 import * as company from "../controllers/company";
 import * as node from "../controllers/node";
+import * as user from "../controllers/user";
 import { Dummy, IConfig as IDummyConfig } from "../util/dummy";
 import { Process } from "../util/process";
 
@@ -24,6 +25,7 @@ export interface IConfig {
 export interface ICtrl {
     readonly company: company.Company;
     readonly node: node.Node;
+    readonly user: user.User;
 }
 
 export interface ISvc {
@@ -49,6 +51,7 @@ export class App extends Process {
         this.ctrl = Object.freeze({
             company: new company.Company(dbService),
             node: new node.Node(config.controllers.node, dbService),
+            user: new user.User(dbService),
         });
 
         this.svc = Object.freeze({

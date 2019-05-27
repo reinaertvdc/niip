@@ -17,6 +17,7 @@ export interface IProps {
     readonly companyId: number;
     readonly id: number;
     readonly key: string;
+    readonly userId: number;
 }
 
 export class Node extends Model {
@@ -25,13 +26,19 @@ export class Node extends Model {
     // tslint:disable-next-line:no-any
     protected static readonly columns: any = Object.freeze({
         client_id: "CHARACTER VARYING(128) NOT NULL",
-        company_id: `BIGINT NOT NULL REFERENCES ${company.Company.tableName}(id)`,
+        company: `BIGINT NOT NULL REFERENCES ${company.Company.tableName}(id)`,
+        company_id: "VARCHAR NOT NULL",
         id: "BIGINT NOT NULL UNIQUE",
+        key: "VARCHAR NOT NULL",
         mountpoint: "CHARACTER VARYING(10) NOT NULL",
         password: "CHARACTER VARYING(128)",
+        psk: "VARCHAR NOT NULL",
         publish_acl: "JSON",
+        ssid: "VARCHAR NOT NULL UNIQUE",
         subscribe_acl: "JSON",
         username: "CHARACTER VARYING(128) NOT NULL",
+        usr: "BIGINT",
+        usr_id: "VARCHAR",
     });
 
     // tslint:disable-next-line:no-any
@@ -46,58 +53,115 @@ export class Node extends Model {
     }
 
     public async create(props: IProps[]): Promise<null> {
-        const values: Array<[string, number, number, string, string, string, string, string]> = [];
+        const values: Array<[
+            string,
+            number,
+            string,
+            number,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            number,
+            string,
+        ]> = [];
 
         props.forEach((value: IProps) => {
             const id: string = this.encodeId(value.id);
+            const ssid = `LogiTrack-${this.encodeId(value.id)}`;
 
             values.push([
                 id,
                 value.companyId,
+                this.encodeId(value.companyId),
                 value.id,
+                value.key,
                 "",
                 bcrypt.hashSync(value.key, this.config.key.saltRounds),
+                ssid,
                 `[{"pattern": "u/${id}"}]`,
+                ssid,
                 `[{"pattern": "d/${id}"}]`,
                 id,
+                value.userId,
+                this.encodeId(value.userId),
             ]);
         });
 
         return this.insert([
             "client_id",
+            "company",
             "company_id",
             "id",
+            "key",
             "mountpoint",
             "password",
+            "psk",
             "publish_acl",
+            "ssid",
             "subscribe_acl",
             "username",
+            "usr",
+            "usr_id",
         ], values);
     }
 
     public async createRoot(value: IProps, clientId: string, username: string): Promise<null> {
-        const values: Array<[string, number, number, string, string, string, string, string]> = [];
+        const values: Array<[
+            string,
+            number,
+            string,
+            number,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            number,
+            string,
+        ]> = [];
+
+        const ssid = `LogiTrack-${this.encodeId(value.id)}`;
 
         values.push([
             clientId,
             value.companyId,
+            this.encodeId(value.companyId),
             value.id,
+            value.key,
             "",
             bcrypt.hashSync(value.key, this.config.key.saltRounds),
+            ssid,
             `[{"pattern": "d/+"}]`,
+            ssid,
             `[{"pattern": "u/+"}]`,
             username,
+            value.userId,
+            this.encodeId(value.userId),
         ]);
 
         return this.insert([
             "client_id",
+            "company",
             "company_id",
             "id",
+            "key",
             "mountpoint",
             "password",
+            "psk",
             "publish_acl",
+            "ssid",
             "subscribe_acl",
             "username",
+            "usr",
+            "usr_id",
         ], values);
     }
 
@@ -107,19 +171,64 @@ export class Node extends Model {
         return buffer.toString("base64");
     }
 
-    public async getById(value: number): Promise<IProps> {
+    public async getById(value: string): Promise<any> {
         // tslint:disable-next-line:no-any
-        const result: any = (await this.select("id = $1", [value]))[0];
+        const result: any = (await this.select("client_id = $1", [value]))[0];
 
         return {
             companyId: result.company_id,
-            id: result.id,
+            id: result.client_id,
             key: result.key,
+            psk: result.psk,
+            ssid: result.ssid,
+            userId: result.usr_id,
         };
     }
 
+    public async getByCompany(value: string): Promise<any[]> {
+        console.log(value);
+
+        // tslint:disable-next-line:no-any
+        const result: any = (await this.select("company_id = $1", [value]));
+
+        const values = [];
+
+        result.forEach((entry) => {
+            values.push({
+                companyId: entry.company_id,
+                id: entry.client_id,
+                key: entry.key,
+                psk: entry.psk,
+                ssid: entry.ssid,
+                userId: entry.usr_id,
+            });
+        });
+
+        return values;
+    }
+
+    public async getAll(): Promise<any[]> {
+        // tslint:disable-next-line:no-any
+        const result: any = (await this.select("company_id != $1", ["AAAAAAAA"]));
+
+        const values = [];
+
+        result.forEach((entry) => {
+            values.push({
+                companyId: entry.company_id,
+                id: entry.client_id,
+                key: entry.key,
+                psk: entry.psk,
+                ssid: entry.ssid,
+                userId: entry.usr_id,
+            });
+        });
+
+        return values;
+    }
+
     public async verifyKey(id: number, value: string): Promise<boolean> {
-        const key: string = (await this.getById(id)).key;
+        const key: string = (await this.getById(this.encodeId(id))).key;
 
         return bcrypt.compare(value, key);
     }
