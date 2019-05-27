@@ -34,10 +34,10 @@ export class Mqtt extends Process {
         this.url = `${config.protocol}://${config.host}:${config.port}`;
     }
 
-    public async publish(id: number|string, message): Promise<void> {
+    public async publish(id: number|string, message: string): Promise<void> {
         if (typeof id === "number") { id = this.encodeId(id); }
 
-        await this.client.publish(`d/${id}`, message);
+        await (this.client as MQTT.AsyncClient).publish(`d/${id}`, message);
     }
 
     protected onStart(): Promise<void> {

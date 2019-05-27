@@ -138,8 +138,6 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 
 				if(position == 1) {
 					adapter.getWifiFragment().setCurrentWiFi(getCurrentSSID())
-
-					checkWiFi()
 				}
 			}
 		})
@@ -298,10 +296,15 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 		if(::parentContext.isInitialized)
 			saveWiFiData(parentContext.defaultSharedPreferences)
 
-		viewPager.currentItem = 1
-
-		if(autoConnect) {
-			connectToWiFi()
+		if(onTheCorrectWiFi()) {
+			viewPager.currentItem = 2
+			startScanner()
+		}
+		else {
+			viewPager.currentItem = 1
+			if(autoConnect) {
+				connectToWiFi()
+			}
 		}
 	}
 
@@ -630,17 +633,23 @@ class ConnectionFragment : LongLifeFragment(), WizardFragmentListener {
 	}
 
 	private fun checkWiFi() {
-		Log.d(javaClass.simpleName, nodeData.toString())
-
-		if(nodeData != null && getCurrentSSID().compareTo(nodeData!!.ssid) == 0) {
+		if(onTheCorrectWiFi()) {
 			viewPager.currentItem = 2
 
 			startScanner()
 		}
 		else if(nodeData != null) {
-			adapter.getWebsocketFragment().setDeviceFound(true)
+			adapter.getWebsocketFragment().setDeviceFound(false)
 			viewPager.currentItem = 1
 		}
+	}
+
+	private fun onTheCorrectWiFi(): Boolean {
+		if(nodeData != null && nodeData!!.ssid.isNotEmpty()) {
+			return nodeData!!.ssid.compareTo(getCurrentSSID()) == 0
+		}
+
+		return false
 	}
 
 	override fun onLoginReady() {
